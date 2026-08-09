@@ -451,10 +451,9 @@
   <div class="view active" id="view-ai">
     <aside class="side" id="sideNav">
       <div class="side-block">
-        <div class="side-title"><span class="n">01</span> API Key Groq (Gratis)</div>
-        <input type="password" id="apiKey" class="key-input" placeholder="gsk_...">
-        <button class="save-btn" id="saveKey">Simpan &amp; Sambungkan</button>
+        <div class="side-title"><span class="n">01</span> Status AI</div>
         <div class="model-badge" id="modelBadge"><span class="dot"></span><span id="modelBadgeText">llama-3.3-70b-versatile</span></div>
+        <div class="key-hint" style="margin-top:6px;">Terhubung lewat proxy raps-proxy — tidak perlu API key.</div>
       </div>
       <div class="side-block">
         <div class="side-title"><span class="n">02</span> Konteks Cepat</div>
@@ -691,7 +690,7 @@ const emptyState = $('emptyState');
 const promptInput = $('promptInput');
 const sendBtn = $('sendBtn');
 
-let apiKey = localStorage.getItem('raps_groq_key') || '';
+const PROXY_URL = 'https://raps-proxy.ianmahesa02.workers.dev';
 let history = [];
 let busy = false;
 
@@ -713,16 +712,6 @@ Ikuti aturan konvensi berikut TANPA KECUALI di setiap kode yang kamu tulis:
 Konteks arsitektur proyek RAPS: modul server di ServerStorage > raps_system dengan Handler, AdminModule, RankModule, DataModule, OverheadModule, ChatTagModule, EventModule, AnnouncementModule. Leaderboard global pakai OrderedDataStore. Ada sistem carry (proxy BasePart di-weld ke HumanoidRootPart), sistem cinematic multi-player, sistem shop/donasi dengan proteksi race condition.
 
 Jawab dalam Bahasa Indonesia yang santai tapi teknis dan padat. Kode dalam blok markdown lua. Jangan pernah menulis print() bahkan untuk contoh debug.`;
-
-if (apiKey) $('apiKey').value = apiKey;
-
-$('saveKey').addEventListener('click', () => {
-  const v = $('apiKey').value.trim();
-  if (!v){ showToast('Masukkan API key dulu', true); return; }
-  apiKey = v;
-  localStorage.setItem('raps_groq_key', v);
-  showToast('API key tersimpan');
-});
 
 document.querySelectorAll('.chip').forEach(chip => {
   chip.addEventListener('click', () => {
@@ -750,7 +739,7 @@ promptInput.addEventListener('keydown', (e) => {
 sendBtn.addEventListener('click', sendMessage);
 
 function escapeHtml(s){
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 const LUA_KEYWORDS = new Set(['and','break','do','else','elseif','end','false','for','function','if','in','local','nil','not','or','repeat','return','then','true','until','while','continue','task','self']);
 const LUA_BUILTINS = new Set([
@@ -1048,18 +1037,15 @@ function updateModelBadge(model){
   if (el) el.textContent = model;
 }
 
-/* --- Groq streaming call with retry + model fallback --- */
+/* --- Groq streaming call (via Cloudflare Worker proxy) with retry + model fallback --- */
 async function streamGroqCompletion(model, messagesPayload, onDelta){
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+  const response = await fetch(PROXY_URL, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + apiKey
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify({
       model: model,
-      max_tokens: 2000,
-      stream: true,
       messages: messagesPayload
     })
   });
@@ -1100,7 +1086,6 @@ async function sendMessage(){
   if (busy) return;
   const text = promptInput.value.trim();
   if (!text) return;
-  if (!apiKey){ showToast('Isi API key Groq dulu di panel kiri', true); return; }
 
   addMessage('user', text);
   history.push({ role: 'user', content: text });
@@ -1589,12 +1574,14 @@ function analyzeLuaSource(src){
     const wasInBlockComment = state.inBlockComment;
     const { clean, commentLine } = stripStringsAndComments(rawLine, state);
     const trimmed = clean.trim();
+    const hadNonCommentCode = trimmed.length > 0;
 
     if (commentLine || wasInBlockComment){
       if (firstCodeSeen){
         issues.push({ line: lineNo, sev: 'warn', cat: 'Konvensi', msg: 'Komentar ditemukan bukan di baris paling atas script.' });
       }
-    } else if (trimmed){
+    }
+    if (hadNonCommentCode){
       firstCodeSeen = true;
     }
 
@@ -1644,10 +1631,6 @@ function analyzeLuaSource(src){
     if (gsMatch){
       const svc = gsMatch[1];
       getServiceCalls[svc] = (getServiceCalls[svc] || 0) + 1;
-    }
-
-    if (/\.\.\s*[A-Za-z_"']/.test(clean) && /\bfor\b|\bwhile\b/.test(clean) === false){
-      // handled separately below via loop-body heuristic if needed
     }
 
     if (/^\s*[A-Za-z_][A-Za-z0-9_]*\s*=\s*[^=]/.test(clean) && !/^\s*local\b/.test(clean) && !/^\s*(if|elseif|while|for|return|function)\b/.test(clean) && !/[.:]\w+\s*=/.test(clean)){
