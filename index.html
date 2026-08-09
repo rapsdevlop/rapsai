@@ -105,6 +105,48 @@
   }
   .new-chat-btn:hover{border-color:var(--danger);color:var(--danger);}
 
+  .history-list{display:flex;flex-direction:column;gap:5px;max-height:220px;overflow-y:auto;}
+  .history-item{
+    display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11.5px;
+    background:var(--void);border:1px solid var(--line);color:var(--mute);padding:7px 9px;
+    border-radius:7px;cursor:pointer;transition:.15s;
+  }
+  .history-item:hover{border-color:var(--flame-dim);color:var(--ink);}
+  .history-item.active{border-color:var(--flame);color:var(--ink);background:rgba(76,134,255,0.08);}
+  .history-item .h-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .history-item .h-del{background:none;border:none;color:var(--mute);cursor:pointer;font-size:12px;padding:0 2px;flex-shrink:0;}
+  .history-item .h-del:hover{color:var(--danger);}
+  .history-empty{font-size:11.5px;color:var(--mute);text-align:center;padding:10px 0;}
+
+  .model-badge{
+    font-family:var(--font-mono);font-size:10px;color:var(--mute);margin-top:6px;
+    display:flex;align-items:center;gap:5px;
+  }
+  .model-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--signal);flex-shrink:0;}
+
+  .stream-cursor{display:inline-block;width:7px;height:14px;background:var(--signal);margin-left:2px;vertical-align:text-bottom;animation:blink 0.9s steps(1) infinite;}
+  @keyframes blink{50%{opacity:0;}}
+
+  .code-actions{position:absolute;top:8px;right:8px;display:flex;gap:6px;}
+  .code-copy{
+    font-family:var(--font-mono);font-size:10.5px;
+    background:var(--panel2);border:1px solid var(--line);color:var(--mute);padding:3px 8px;
+    border-radius:6px;cursor:pointer;
+  }
+  .code-copy:hover{color:var(--ink);border-color:var(--flame-dim);}
+  .diff-btn{color:var(--ember);border-color:rgba(255,180,84,0.3);}
+  .diff-btn:hover{color:var(--ember);border-color:var(--ember);}
+
+  .diff-box{
+    background:var(--void);border:1px solid var(--line);border-radius:9px;padding:10px 0;
+    margin:10px 0;font-family:var(--font-mono);font-size:12px;overflow-x:auto;
+  }
+  .diff-line{padding:1px 14px;white-space:pre;line-height:1.55;}
+  .diff-line.add{background:rgba(94,234,212,0.10);color:#9CFFEA;}
+  .diff-line.del{background:rgba(255,107,107,0.10);color:#FF9E9E;text-decoration:line-through;text-decoration-color:rgba(255,107,107,0.4);}
+  .diff-line.same{color:var(--mute);}
+  .diff-marker{display:inline-block;width:14px;opacity:.7;}
+
   main.chatcol{flex:1;display:flex;flex-direction:column;min-width:0;}
   .messages{flex:1;overflow-y:auto;padding:22px;display:flex;flex-direction:column;gap:16px;}
   .empty-state{margin:auto;text-align:center;max-width:420px;color:var(--mute);}
@@ -142,6 +184,13 @@
   }
   .bubble code{font-family:var(--font-mono);font-size:12.5px;color:var(--signal);white-space:pre;}
   .bubble p code:not(pre code){background:var(--void);padding:1px 5px;border-radius:4px;color:var(--ember);}
+  .tok-keyword{color:#569CD6;}
+  .tok-string{color:#CE9178;}
+  .tok-number{color:#B5CEA8;}
+  .tok-comment{color:#6A9955;font-style:italic;}
+  .tok-builtin{color:#4EC9B0;}
+  .tok-func{color:#DCDCAA;}
+  .tok-prop{color:#9CDCFE;}
   .code-copy{
     position:absolute;top:8px;right:8px;font-family:var(--font-mono);font-size:10.5px;
     background:var(--panel2);border:1px solid var(--line);color:var(--mute);padding:3px 8px;
@@ -405,6 +454,7 @@
         <div class="side-title"><span class="n">01</span> API Key Groq (Gratis)</div>
         <input type="password" id="apiKey" class="key-input" placeholder="gsk_...">
         <button class="save-btn" id="saveKey">Simpan &amp; Sambungkan</button>
+        <div class="model-badge" id="modelBadge"><span class="dot"></span><span id="modelBadgeText">llama-3.3-70b-versatile</span></div>
       </div>
       <div class="side-block">
         <div class="side-title"><span class="n">02</span> Konteks Cepat</div>
@@ -424,6 +474,10 @@
           <li>Ringan &amp; crash-free</li>
           <li>Selalu tulis full script, bukan potongan</li>
         </ul>
+      </div>
+      <div class="side-block">
+        <div class="side-title"><span class="n">04</span> Riwayat Chat</div>
+        <div class="history-list" id="historyList"></div>
       </div>
       <button class="new-chat-btn" id="newChat">+ Percakapan Baru</button>
     </aside>
@@ -641,7 +695,11 @@ let apiKey = localStorage.getItem('raps_groq_key') || '';
 let history = [];
 let busy = false;
 
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
+const MODEL_CHAIN = [
+  'llama-3.3-70b-versatile',
+  'llama-3.1-8b-instant',
+  'meta-llama/llama-4-scout-17b-16e-instruct'
+];
 
 const SYSTEM_PROMPT = `Kamu adalah RAPS AI, asisten koding khusus Luau dan Roblox Studio untuk developer bernama Roy yang sedang membangun game bernama RAPS.
 
@@ -680,12 +738,6 @@ document.querySelectorAll('.example-btn').forEach(btn => {
     sendMessage();
   });
 });
-$('newChat').addEventListener('click', () => {
-  history = [];
-  messagesEl.innerHTML = '';
-  messagesEl.appendChild(emptyState);
-  emptyState.style.display = 'block';
-});
 
 function autoResize(){
   promptInput.style.height = 'auto';
@@ -700,6 +752,112 @@ sendBtn.addEventListener('click', sendMessage);
 function escapeHtml(s){
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+const LUA_KEYWORDS = new Set(['and','break','do','else','elseif','end','false','for','function','if','in','local','nil','not','or','repeat','return','then','true','until','while','continue','task','self']);
+const LUA_BUILTINS = new Set([
+  'game','workspace','script','Instance','math','string','table','os','coroutine',
+  'print','warn','error','pairs','ipairs','pcall','xpcall','tostring','tonumber',
+  'type','typeof','select','unpack','require','Enum','Vector3','Vector2','Vector2int16',
+  'CFrame','UDim2','UDim','Color3','BrickColor','Ray','Region3','TweenInfo',
+  'RaycastParams','OverlapParams','NumberSequence','ColorSequence','NumberRange','wait','delay','spawn'
+]);
+function highlightLua(src){
+  let out = '';
+  let i = 0;
+  const len = src.length;
+  while (i < len){
+    const rest = src.slice(i);
+    let m;
+    if ((m = rest.match(/^--\[(=*)\[[\s\S]*?\]\1\]/))){
+      out += `<span class="tok-comment">${escapeHtml(m[0])}</span>`;
+      i += m[0].length; continue;
+    }
+    if ((m = rest.match(/^--[^\n]*/))){
+      out += `<span class="tok-comment">${escapeHtml(m[0])}</span>`;
+      i += m[0].length; continue;
+    }
+    if ((m = rest.match(/^\[(=*)\[[\s\S]*?\]\1\]/))){
+      out += `<span class="tok-string">${escapeHtml(m[0])}</span>`;
+      i += m[0].length; continue;
+    }
+    if ((m = rest.match(/^"(?:[^"\\]|\\.)*"/)) || (m = rest.match(/^'(?:[^'\\]|\\.)*'/))){
+      out += `<span class="tok-string">${escapeHtml(m[0])}</span>`;
+      i += m[0].length; continue;
+    }
+    if ((m = rest.match(/^0x[0-9a-fA-F]+|^\d+\.?\d*(?:[eE][+-]?\d+)?/))){
+      out += `<span class="tok-number">${escapeHtml(m[0])}</span>`;
+      i += m[0].length; continue;
+    }
+    if ((m = rest.match(/^[A-Za-z_][A-Za-z0-9_]*/))){
+      const word = m[0];
+      const afterIsCall = /^\s*\(/.test(rest.slice(word.length));
+      const prevChar = src[i-1];
+      let cls = '';
+      if (LUA_KEYWORDS.has(word)) cls = 'tok-keyword';
+      else if (LUA_BUILTINS.has(word)) cls = 'tok-builtin';
+      else if (afterIsCall) cls = 'tok-func';
+      else if (prevChar === '.' || prevChar === ':') cls = 'tok-prop';
+      out += cls ? `<span class="${cls}">${escapeHtml(word)}</span>` : escapeHtml(word);
+      i += word.length; continue;
+    }
+    out += escapeHtml(src[i]);
+    i++;
+  }
+  return out;
+}
+
+/* --- code registry & diff tracking (for "Lihat Diff" between successive script versions) --- */
+let codeBlockCounter = 0;
+let codeRegistry = {};
+let lastScriptCode = null;
+
+function computeLineDiff(oldStr, newStr){
+  const a = oldStr.split('\n');
+  const b = newStr.split('\n');
+  const n = a.length, m = b.length;
+  if (n * m > 500000){
+    return [
+      ...a.map(t => ({ type: 'del', text: t })),
+      ...b.map(t => ({ type: 'add', text: t }))
+    ];
+  }
+  const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--){
+    for (let j = m - 1; j >= 0; j--){
+      dp[i][j] = a[i] === b[j] ? dp[i+1][j+1] + 1 : Math.max(dp[i+1][j], dp[i][j+1]);
+    }
+  }
+  const result = [];
+  let i = 0, j = 0;
+  while (i < n && j < m){
+    if (a[i] === b[j]){ result.push({ type: 'same', text: a[i] }); i++; j++; }
+    else if (dp[i+1][j] >= dp[i][j+1]){ result.push({ type: 'del', text: a[i] }); i++; }
+    else { result.push({ type: 'add', text: b[j] }); j++; }
+  }
+  while (i < n){ result.push({ type: 'del', text: a[i] }); i++; }
+  while (j < m){ result.push({ type: 'add', text: b[j] }); j++; }
+  return result;
+}
+function toggleDiff(btn, beforeId, afterId){
+  const pre = btn.closest('pre');
+  const next = pre.nextElementSibling;
+  if (next && next.classList && next.classList.contains('diff-box')){
+    next.remove();
+    btn.textContent = 'Diff';
+    return;
+  }
+  const before = codeRegistry[beforeId] || '';
+  const after = codeRegistry[afterId] || '';
+  const lines = computeLineDiff(before, after);
+  const box = document.createElement('div');
+  box.className = 'diff-box';
+  box.innerHTML = lines.map(d => {
+    const marker = d.type === 'add' ? '+' : d.type === 'del' ? '\u2212' : ' ';
+    return `<div class="diff-line ${d.type}"><span class="diff-marker">${marker}</span>${escapeHtml(d.text)}</div>`;
+  }).join('');
+  pre.parentNode.insertBefore(box, pre.nextSibling);
+  btn.textContent = 'Tutup Diff';
+}
+
 function renderMarkdownLite(text){
   const parts = text.split(/(```[\s\S]*?```)/g);
   let html = '';
@@ -707,7 +865,16 @@ function renderMarkdownLite(text){
     if (part.startsWith('```')){
       const match = part.match(/^```(\w*)\n?([\s\S]*?)```$/);
       const code = match ? match[2] : part.slice(3, -3);
-      html += `<pre><button class="code-copy" onclick="copyCode(this)">Salin</button><code>${escapeHtml(code)}</code></pre>`;
+      const id = 'cb' + (++codeBlockCounter);
+      codeRegistry[id] = code;
+      let diffBtnHtml = '';
+      if (lastScriptCode !== null && lastScriptCode !== code){
+        const beforeId = id + '_before';
+        codeRegistry[beforeId] = lastScriptCode;
+        diffBtnHtml = `<button class="code-copy diff-btn" onclick="toggleDiff(this,'${beforeId}','${id}')">Diff</button>`;
+      }
+      lastScriptCode = code;
+      html += `<pre><div class="code-actions">${diffBtnHtml}<button class="code-copy" onclick="copyCode(this)">Salin</button></div><code>${highlightLua(code)}</code></pre>`;
     } else {
       const escaped = escapeHtml(part)
         .replace(/`([^`]+)`/g, '<code>$1</code>')
@@ -718,8 +885,27 @@ function renderMarkdownLite(text){
   }
   return html;
 }
+function renderMarkdownLitePreview(text){
+  const parts = text.split(/(```[\s\S]*?```)/g);
+  let html = '';
+  for (const part of parts){
+    if (part.startsWith('```')){
+      const match = part.match(/^```(\w*)\n?([\s\S]*?)```$/);
+      const code = match ? match[2] : part.slice(3, -3);
+      html += `<pre><code>${highlightLua(code)}</code></pre>`;
+    } else {
+      const escaped = escapeHtml(part)
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/\n/g, '<br>');
+      html += `<p>${escaped}</p>`;
+    }
+  }
+  html += '<span class="stream-cursor"></span>';
+  return html;
+}
 function copyCode(btn){
-  const code = btn.nextElementSibling.textContent;
+  const code = btn.closest('pre').querySelector('code').textContent;
   navigator.clipboard.writeText(code).then(() => {
     const orig = btn.textContent;
     btn.textContent = 'Tersalin';
@@ -746,6 +932,170 @@ function addMessage(role, content){
   messagesEl.scrollTop = messagesEl.scrollHeight;
   return bubble;
 }
+
+/* --- persistent chat history (localStorage, multi-conversation) --- */
+let conversations = [];
+let currentConvId = null;
+
+function loadConversations(){
+  try { return JSON.parse(localStorage.getItem('raps_conversations') || '[]'); }
+  catch(e){ return []; }
+}
+function saveConversations(arr){
+  localStorage.setItem('raps_conversations', JSON.stringify(arr));
+}
+function generateConvId(){
+  return 'conv_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+}
+function createNewConversation(){
+  return { id: generateConvId(), title: 'Percakapan Baru', history: [], updatedAt: Date.now() };
+}
+function deriveTitle(hist){
+  const firstUser = hist.find(m => m.role === 'user');
+  if (!firstUser) return 'Percakapan Baru';
+  const t = firstUser.content.trim().replace(/\s+/g, ' ');
+  if (!t) return 'Percakapan Baru';
+  return t.length > 30 ? t.slice(0, 30) + '\u2026' : t;
+}
+function saveCurrentConversation(){
+  let conv = conversations.find(c => c.id === currentConvId);
+  if (!conv){
+    conv = { id: currentConvId, title: 'Percakapan Baru', history: [], updatedAt: Date.now() };
+    conversations.unshift(conv);
+  }
+  conv.history = history;
+  conv.title = deriveTitle(history);
+  conv.updatedAt = Date.now();
+  saveConversations(conversations);
+  renderHistoryList();
+}
+function replayHistory(hist){
+  messagesEl.innerHTML = '';
+  codeBlockCounter = 0;
+  codeRegistry = {};
+  lastScriptCode = null;
+  if (!hist.length){
+    messagesEl.appendChild(emptyState);
+    emptyState.style.display = 'block';
+    return;
+  }
+  hist.forEach(m => addMessage(m.role === 'user' ? 'user' : 'assistant', m.content));
+}
+function switchConversation(id){
+  const conv = conversations.find(c => c.id === id);
+  if (!conv) return;
+  currentConvId = id;
+  history = conv.history.slice();
+  replayHistory(history);
+  localStorage.setItem('raps_active_conv', currentConvId);
+  renderHistoryList();
+}
+function renderHistoryList(){
+  const el = $('historyList');
+  if (!conversations.length){
+    el.innerHTML = '<div class="history-empty">Belum ada riwayat.</div>';
+    return;
+  }
+  const sorted = [...conversations].sort((a,b) => (b.updatedAt||0) - (a.updatedAt||0));
+  el.innerHTML = sorted.map(c => `
+    <div class="history-item ${c.id === currentConvId ? 'active' : ''}" data-id="${c.id}">
+      <span class="h-title">${escapeHtml(c.title || 'Percakapan Baru')}</span>
+      <button class="h-del" data-del="${c.id}" title="Hapus">\u2715</button>
+    </div>
+  `).join('');
+  el.querySelectorAll('.history-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      if (e.target.closest('.h-del')) return;
+      switchConversation(item.dataset.id);
+    });
+  });
+  el.querySelectorAll('.h-del').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.del;
+      conversations = conversations.filter(c => c.id !== id);
+      saveConversations(conversations);
+      if (id === currentConvId){
+        if (conversations.length){
+          switchConversation(conversations.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0].id);
+        } else {
+          const conv = createNewConversation();
+          conversations.unshift(conv);
+          currentConvId = conv.id;
+          history = [];
+          replayHistory([]);
+          saveConversations(conversations);
+          localStorage.setItem('raps_active_conv', currentConvId);
+        }
+      }
+      renderHistoryList();
+    });
+  });
+}
+$('newChat').addEventListener('click', () => {
+  const conv = createNewConversation();
+  conversations.unshift(conv);
+  currentConvId = conv.id;
+  history = [];
+  replayHistory([]);
+  saveConversations(conversations);
+  localStorage.setItem('raps_active_conv', currentConvId);
+  renderHistoryList();
+});
+
+function updateModelBadge(model){
+  const el = $('modelBadgeText');
+  if (el) el.textContent = model;
+}
+
+/* --- Groq streaming call with retry + model fallback --- */
+async function streamGroqCompletion(model, messagesPayload, onDelta){
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + apiKey
+    },
+    body: JSON.stringify({
+      model: model,
+      max_tokens: 2000,
+      stream: true,
+      messages: messagesPayload
+    })
+  });
+  if (!response.ok){
+    const errBody = await response.json().catch(() => ({}));
+    const e = new Error(errBody?.error?.message || ('HTTP ' + response.status));
+    e.status = response.status;
+    const retryAfterHeader = parseFloat(response.headers.get('retry-after'));
+    if (!isNaN(retryAfterHeader)) e.retryAfterMs = retryAfterHeader * 1000;
+    throw e;
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let fullText = '';
+  while (true){
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+    for (const line of lines){
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('data:')) continue;
+      const payload = trimmed.slice(5).trim();
+      if (payload === '[DONE]') continue;
+      try {
+        const json = JSON.parse(payload);
+        const delta = json.choices?.[0]?.delta?.content;
+        if (delta){ fullText += delta; onDelta(fullText); }
+      } catch(e){ /* skip partial/malformed chunk */ }
+    }
+  }
+  return fullText;
+}
+
 async function sendMessage(){
   if (busy) return;
   const text = promptInput.value.trim();
@@ -756,85 +1106,96 @@ async function sendMessage(){
   history.push({ role: 'user', content: text });
   promptInput.value = '';
   autoResize();
+  saveCurrentConversation();
 
   busy = true;
   sendBtn.disabled = true;
   const bubble = addMessage('assistant', null);
 
-  const MAX_RETRIES = 4;
-  const BASE_DELAY_MS = 2000;
+  const messagesPayload = [{ role: 'system', content: SYSTEM_PROMPT }, ...history];
+  const RETRIES_PER_MODEL = 2;
+  let replyText = null;
+  let lastErr = null;
+  let usedModel = null;
 
-  try {
-    let data = null;
-    let lastErr = null;
-
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++){
-      let response;
+  modelLoop:
+  for (let mIdx = 0; mIdx < MODEL_CHAIN.length; mIdx++){
+    const model = MODEL_CHAIN[mIdx];
+    for (let attempt = 0; attempt <= RETRIES_PER_MODEL; attempt++){
       try {
-        response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + apiKey
-          },
-          body: JSON.stringify({
-            model: GROQ_MODEL,
-            max_tokens: 2000,
-            messages: [
-              { role: 'system', content: SYSTEM_PROMPT },
-              ...history
-            ]
-          })
+        const result = await streamGroqCompletion(model, messagesPayload, (partial) => {
+          bubble.innerHTML = renderMarkdownLitePreview(partial);
+          messagesEl.scrollTop = messagesEl.scrollHeight;
         });
-      } catch (networkErr){
-        lastErr = networkErr;
-        break;
-      }
-
-      if (response.ok){
-        data = await response.json();
+        replyText = result || '(tidak ada respons teks)';
+        usedModel = model;
         lastErr = null;
-        break;
+        break modelLoop;
+      } catch (err){
+        lastErr = err;
+        const isRateLimited = err.status === 429;
+        const isServerBusy = err.status === 500 || err.status === 503;
+        if (!isRateLimited && !isServerBusy){
+          break modelLoop;
+        }
+        if (attempt < RETRIES_PER_MODEL){
+          const waitMs = err.retryAfterMs || (2000 * Math.pow(2, attempt));
+          bubble.innerHTML = renderMarkdownLitePreview(
+            `Model ${model} kena limit, mencoba lagi dalam ${Math.round(waitMs/1000)}d (percobaan ${attempt+1}/${RETRIES_PER_MODEL+1})...`
+          );
+          await new Promise(r => setTimeout(r, waitMs));
+        } else if (mIdx < MODEL_CHAIN.length - 1){
+          bubble.innerHTML = renderMarkdownLitePreview(
+            `Model ${model} masih limit, beralih ke ${MODEL_CHAIN[mIdx+1]}...`
+          );
+          await new Promise(r => setTimeout(r, 700));
+        }
       }
-
-      const errBody = await response.json().catch(() => ({}));
-      const msg = errBody?.error?.message || ('HTTP ' + response.status);
-      lastErr = new Error(msg);
-
-      const isRateLimited = response.status === 429;
-      const isServerBusy = response.status === 503 || response.status === 500;
-      if ((isRateLimited || isServerBusy) && attempt < MAX_RETRIES){
-        const retryAfterHeader = parseFloat(response.headers.get('retry-after'));
-        const waitMs = !isNaN(retryAfterHeader)
-          ? retryAfterHeader * 1000
-          : BASE_DELAY_MS * Math.pow(2, attempt);
-        bubble.innerHTML = renderMarkdownLite(
-          `Kena rate limit Groq, mencoba lagi dalam ${Math.round(waitMs/1000)} detik... (percobaan ${attempt+1}/${MAX_RETRIES})`
-        );
-        await new Promise(r => setTimeout(r, waitMs));
-        continue;
-      }
-      break;
     }
+  }
 
-    if (lastErr) throw lastErr;
-
-    const replyText = data.choices?.[0]?.message?.content || '(tidak ada respons teks)';
+  if (replyText !== null){
     bubble.innerHTML = renderMarkdownLite(replyText);
     history.push({ role: 'assistant', content: replyText });
+    updateModelBadge(usedModel);
+    saveCurrentConversation();
     messagesEl.scrollTop = messagesEl.scrollHeight;
-  } catch (err){
+  } else {
     let hint = '';
-    if (err.message && /Failed to fetch/i.test(err.message)){
+    if (lastErr && lastErr.message && /Failed to fetch/i.test(lastErr.message)){
       hint = ' (kemungkinan diblokir CORS oleh browser — cek console F12 untuk detail)';
     }
-    bubble.innerHTML = renderMarkdownLite('Gagal menghubungi API: ' + err.message + hint);
+    bubble.innerHTML = renderMarkdownLite('Gagal menghubungi API: ' + (lastErr ? lastErr.message : 'unknown error') + hint);
     showToast('Terjadi error saat memanggil API', true);
-  } finally {
-    busy = false;
-    sendBtn.disabled = false;
   }
+
+  busy = false;
+  sendBtn.disabled = false;
 }
+
+/* --- boot: restore conversations & active chat --- */
+(function bootAiHistory(){
+  conversations = loadConversations();
+  let activeId = localStorage.getItem('raps_active_conv');
+  if (!activeId || !conversations.find(c => c.id === activeId)){
+    if (conversations.length){
+      activeId = conversations.sort((a,b) => (b.updatedAt||0) - (a.updatedAt||0))[0].id;
+    } else {
+      const conv = createNewConversation();
+      conversations.push(conv);
+      activeId = conv.id;
+      saveConversations(conversations);
+    }
+    localStorage.setItem('raps_active_conv', activeId);
+  }
+  currentConvId = activeId;
+  const conv = conversations.find(c => c.id === currentConvId);
+  history = conv ? conv.history.slice() : [];
+  replayHistory(history);
+  renderHistoryList();
+  updateModelBadge(MODEL_CHAIN[0]);
+})();
+
 
 /* ===================== OPEN CLOUD UPLOADER ===================== */
 let selectedFile = null;
