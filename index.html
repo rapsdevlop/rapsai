@@ -402,8 +402,8 @@
   <div class="view active" id="view-ai">
     <aside class="side" id="sideNav">
       <div class="side-block">
-        <div class="side-title"><span class="n">01</span> API Key Anthropic</div>
-        <input type="password" id="apiKey" class="key-input" placeholder="sk-ant-...">
+        <div class="side-title"><span class="n">01</span> API Key Groq (Gratis)</div>
+        <input type="password" id="apiKey" class="key-input" placeholder="gsk_...">
         <button class="save-btn" id="saveKey">Simpan &amp; Sambungkan</button>
       </div>
       <div class="side-block">
@@ -630,15 +630,17 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 });
 $('menuBtn').addEventListener('click', () => $('sideNav').classList.toggle('open'));
 
-/* ===================== AI ASSISTANT ===================== */
+/* ===================== AI ASSISTANT (Groq — gratis) ===================== */
 const messagesEl = $('messages');
 const emptyState = $('emptyState');
 const promptInput = $('promptInput');
 const sendBtn = $('sendBtn');
 
-let apiKey = localStorage.getItem('raps_ai_key') || '';
+let apiKey = localStorage.getItem('raps_groq_key') || '';
 let history = [];
 let busy = false;
+
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
 const SYSTEM_PROMPT = `Kamu adalah RAPS AI, asisten koding khusus Luau dan Roblox Studio untuk developer bernama Roy yang sedang membangun game bernama RAPS.
 
@@ -658,7 +660,7 @@ $('saveKey').addEventListener('click', () => {
   const v = $('apiKey').value.trim();
   if (!v){ showToast('Masukkan API key dulu', true); return; }
   apiKey = v;
-  localStorage.setItem('raps_ai_key', v);
+  localStorage.setItem('raps_groq_key', v);
   showToast('API key tersimpan');
 });
 
@@ -746,7 +748,7 @@ async function sendMessage(){
   if (busy) return;
   const text = promptInput.value.trim();
   if (!text) return;
-  if (!apiKey){ showToast('Isi API key Anthropic dulu di panel kiri', true); return; }
+  if (!apiKey){ showToast('Isi API key Groq dulu di panel kiri', true); return; }
 
   addMessage('user', text);
   history.push({ role: 'user', content: text });
@@ -758,19 +760,19 @@ async function sendMessage(){
   const bubble = addMessage('assistant', null);
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
+        'Authorization': 'Bearer ' + apiKey
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: GROQ_MODEL,
         max_tokens: 2000,
-        system: SYSTEM_PROMPT,
-        messages: history
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          ...history
+        ]
       })
     });
     if (!response.ok){
@@ -778,13 +780,16 @@ async function sendMessage(){
       throw new Error(errBody?.error?.message || ('HTTP ' + response.status));
     }
     const data = await response.json();
-    const textBlocks = data.content.filter(b => b.type === 'text').map(b => b.text);
-    const replyText = textBlocks.join('\n\n') || '(tidak ada respons teks)';
+    const replyText = data.choices?.[0]?.message?.content || '(tidak ada respons teks)';
     bubble.innerHTML = renderMarkdownLite(replyText);
     history.push({ role: 'assistant', content: replyText });
     messagesEl.scrollTop = messagesEl.scrollHeight;
   } catch (err){
-    bubble.innerHTML = renderMarkdownLite('Gagal menghubungi API: ' + err.message);
+    let hint = '';
+    if (err.message && /Failed to fetch/i.test(err.message)){
+      hint = ' (kemungkinan diblokir CORS oleh browser — cek console F12 untuk detail)';
+    }
+    bubble.innerHTML = renderMarkdownLite('Gagal menghubungi API: ' + err.message + hint);
     showToast('Terjadi error saat memanggil API', true);
   } finally {
     busy = false;
