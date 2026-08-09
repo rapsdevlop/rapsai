@@ -336,7 +336,7 @@
     color:#fff;border:1px solid var(--flame);border-radius:9px;padding:11px 18px;cursor:pointer;flex-shrink:0;
   }
   .asset-search{margin-bottom:16px;}
-  table.asset-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  table.asset-table{width:100%;min-width:480px;border-collapse:collapse;font-size:12.5px;}
   table.asset-table th{
     text-align:left;font-family:var(--font-mono);font-size:10.5px;text-transform:uppercase;
     letter-spacing:.5px;color:var(--mute);padding:9px 12px;border-bottom:1px solid var(--line);
@@ -469,7 +469,52 @@
     .sidebar-close-btn{display:flex !important;}
     .sidebar-backdrop{display:block !important;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:39;opacity:0;pointer-events:none;transition:.2s;}
     .sidebar-backdrop.show{opacity:1;pointer-events:auto;}
+
+    header.top{padding:10px 12px;gap:8px;}
+    .sub{display:none;}
+    .tabbar{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;scrollbar-width:none;}
+    .tabbar::-webkit-scrollbar{display:none;}
+    .tab-btn{flex-shrink:0;font-size:11.5px;padding:7px 12px;}
+
+    .composer{padding:10px 14px;}
+    .composer-mode-btn{font-size:11.5px;padding:9px 6px;gap:5px;}
+    .composer-mode-btn svg{width:13px;height:13px;}
+    .messages{padding:16px;}
+
+    .image-sub-row{flex-wrap:wrap;}
+    .image-sub-tabs{flex-wrap:wrap;}
+    #refUploadRow{flex-wrap:wrap;}
+
+    .snip-layout{flex-direction:column;height:auto;}
+    .snip-list-col{width:100%;}
+    .snip-list{max-height:180px;}
+    .snip-detail-col{min-height:320px;}
+
+    #view-linter{overflow-y:auto;}
+    .lint-layout{flex-direction:column;height:auto;}
+    .lint-col{flex:none;}
+    .lint-panel{height:300px;}
+
+    /* Cegah auto-zoom Safari iOS: semua kontrol form/teks yang bisa diketik
+       harus punya font-size minimal 16px saat fokus di layar sentuh */
+    .field-input, .field-select, .key-input,
+    #promptInputChat, #promptInputImage,
+    #lintInput, .snip-code-area{
+      font-size:16px;
+    }
   }
+  @media (max-width:480px){
+    .brand-name{font-size:16px;}
+    .composer-mode-btn{font-size:10.5px;padding:8px 4px;}
+    .send-btn{padding:10px 14px;font-size:12px;}
+    .bubble{font-size:12.5px;padding:10px 12px;}
+    .empty-state h2{font-size:15px;}
+    .example-btn{font-size:11px;padding:8px 10px;}
+    .form-title{font-size:17px;}
+    .primary-btn{font-size:13px;padding:11px 16px;}
+    .scroll-view{padding:16px;}
+  }
+  .table-scroll{overflow-x:auto;}
   .menu-btn{display:none;background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:7px 10px;cursor:pointer;font-size:16px;}
   .sidebar-close-btn{display:none;position:absolute;top:10px;right:10px;background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:8px;width:30px;height:30px;align-items:center;justify-content:center;cursor:pointer;font-size:14px;z-index:2;}
   .sidebar-backdrop{display:none;}
@@ -738,12 +783,14 @@
           <input type="text" id="assetSearch" class="field-input" placeholder="Cari nama, ID, atau kategori...">
         </div>
 
-        <table class="asset-table" id="assetTable">
-          <thead>
-            <tr><th>Nama</th><th>Asset ID</th><th>Kategori</th><th></th></tr>
-          </thead>
-          <tbody id="assetTbody"></tbody>
-        </table>
+        <div class="table-scroll">
+          <table class="asset-table" id="assetTable">
+            <thead>
+              <tr><th>Nama</th><th>Asset ID</th><th>Kategori</th><th></th></tr>
+            </thead>
+            <tbody id="assetTbody"></tbody>
+          </table>
+        </div>
         <div class="empty-assets" id="emptyAssets" style="display:none;">Belum ada asset tersimpan. Tambahkan di atas.</div>
       </div>
     </div>
