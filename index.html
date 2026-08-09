@@ -466,8 +466,8 @@
     aside.side.open{transform:translateX(0);}
     .menu-btn{display:flex !important;}
     .field-row{grid-template-columns:1fr;}
-    .sidebar-close-btn{display:flex;}
-    .sidebar-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:39;opacity:0;pointer-events:none;transition:.2s;}
+    .sidebar-close-btn{display:flex !important;}
+    .sidebar-backdrop{display:block !important;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:39;opacity:0;pointer-events:none;transition:.2s;}
     .sidebar-backdrop.show{opacity:1;pointer-events:auto;}
   }
   .menu-btn{display:none;background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:7px 10px;cursor:pointer;font-size:16px;}
