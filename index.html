@@ -199,6 +199,9 @@
   .code-copy:hover{color:var(--ink);border-color:var(--flame-dim);}
   .bubble p{margin:0 0 8px;}
   .bubble p:last-child{margin-bottom:0;}
+  .gen-image{max-width:100%;border-radius:9px;border:1px solid var(--line);display:block;margin-top:6px;}
+  .image-actions{display:flex;gap:8px;margin-top:8px;}
+  .image-actions .code-copy{position:static;}
   .thinking{display:flex;gap:4px;align-items:center;padding:4px 0;}
   .thinking span{width:6px;height:6px;border-radius:50%;background:var(--signal);animation:bounce 1.2s ease-in-out infinite;}
   .thinking span:nth-child(2){animation-delay:.15s;}
@@ -223,6 +226,14 @@
   }
   .send-btn:hover{filter:brightness(1.08);}
   .send-btn:disabled{opacity:.4;cursor:not-allowed;}
+  .image-btn{
+    background:linear-gradient(135deg,#FF6EC7,#B357FF);
+    display:flex;align-items:center;gap:6px;
+    box-shadow:0 6px 16px -6px rgba(179,87,255,0.55);
+  }
+  .image-btn:hover{filter:brightness(1.12);box-shadow:0 8px 20px -6px rgba(179,87,255,0.7);}
+  .image-btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;}
+  .image-btn svg{width:15px;height:15px;flex-shrink:0;}
   .composer-hint{font-size:10.5px;color:var(--mute);font-family:var(--font-mono);margin-top:7px;padding-left:4px;}
 
   /* ===== Uploader + Assets tabs ===== */
@@ -453,7 +464,6 @@
       <div class="side-block">
         <div class="side-title"><span class="n">01</span> Status AI</div>
         <div class="model-badge" id="modelBadge"><span class="dot"></span><span id="modelBadgeText">llama-3.3-70b-versatile</span></div>
-        <div class="key-hint" style="margin-top:6px;">Terhubung lewat proxy raps-proxy — tidak perlu API key.</div>
       </div>
       <div class="side-block">
         <div class="side-title"><span class="n">02</span> Konteks Cepat</div>
@@ -496,9 +506,10 @@
       <div class="composer">
         <div class="composer-inner">
           <textarea id="promptInput" rows="1" placeholder="Tanya soal script Luau, debug, atau minta dibuatkan module..."></textarea>
+          <button class="send-btn image-btn" id="imageBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.5" fill="currentColor" stroke="none"/><path d="M21 15l-5-5-9 9"/></svg>Gambar</button>
           <button class="send-btn" id="sendBtn">Kirim</button>
         </div>
-        <div class="composer-hint">Enter untuk kirim · Shift+Enter untuk baris baru</div>
+        <div class="composer-hint">Enter untuk kirim · Shift+Enter untuk baris baru · Tombol Gambar untuk generate image dari teks</div>
       </div>
     </main>
   </div>
@@ -689,6 +700,7 @@ const messagesEl = $('messages');
 const emptyState = $('emptyState');
 const promptInput = $('promptInput');
 const sendBtn = $('sendBtn');
+const imageBtn = $('imageBtn');
 
 const PROXY_URL = 'https://raps-proxy.ianmahesa02.workers.dev';
 let history = [];
@@ -1157,6 +1169,66 @@ async function sendMessage(){
   busy = false;
   sendBtn.disabled = false;
 }
+
+/* --- image generation via proxy (Cloudflare Workers AI) --- */
+async function generateImage(){
+  if (busy) return;
+  const text = promptInput.value.trim();
+  if (!text){ showToast('Tulis dulu deskripsi gambarnya', true); return; }
+
+  addMessage('user', text);
+  history.push({ role: 'user', content: '[Gambar] ' + text });
+  promptInput.value = '';
+  autoResize();
+  saveCurrentConversation();
+
+  busy = true;
+  sendBtn.disabled = true;
+  imageBtn.disabled = true;
+  const bubble = addMessage('assistant', null);
+
+  try {
+    const response = await fetch(PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'image', prompt: text })
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || !data.image){
+      throw new Error(data?.error || ('HTTP ' + response.status));
+    }
+
+    const src = 'data:image/png;base64,' + data.image;
+    bubble.innerHTML = `
+      <p>Gambar untuk: "${escapeHtml(text)}"</p>
+      <img class="gen-image" src="${src}" alt="Generated image">
+      <div class="image-actions">
+        <button class="code-copy" onclick="downloadImage(this)" data-src="${src}">Unduh</button>
+      </div>
+    `;
+    history.push({ role: 'assistant', content: '[Gambar berhasil dibuat: ' + text + ']' });
+    saveCurrentConversation();
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  } catch (err){
+    bubble.innerHTML = renderMarkdownLite('Gagal membuat gambar: ' + err.message);
+    showToast('Gagal membuat gambar', true);
+  }
+
+  busy = false;
+  sendBtn.disabled = false;
+  imageBtn.disabled = false;
+}
+function downloadImage(btn){
+  const src = btn.dataset.src;
+  const a = document.createElement('a');
+  a.href = src;
+  a.download = 'raps-image-' + Date.now() + '.png';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+imageBtn.addEventListener('click', generateImage);
 
 /* --- boot: restore conversations & active chat --- */
 (function bootAiHistory(){
