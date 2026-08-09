@@ -504,12 +504,23 @@
         </div>
       </div>
       <div class="composer">
+        <div class="chip-row" id="imageModeRow" style="margin-bottom:8px;">
+          <span class="chip" data-mode="text" id="modeChipText">Teks → Gambar</span>
+          <span class="chip" data-mode="reference" id="modeChipRef">Referensi → Gambar</span>
+        </div>
+        <div id="refUploadRow" style="display:none;align-items:center;gap:8px;margin-bottom:8px;">
+          <button class="code-copy" id="refUploadBtn" style="position:static;">📎 Upload Gambar Referensi</button>
+          <img id="refPreviewImg" style="display:none;height:34px;width:34px;object-fit:cover;border-radius:6px;border:1px solid var(--line);">
+          <span id="refFileName" style="font-size:11px;color:var(--mute);font-family:var(--font-mono);"></span>
+          <button class="code-copy" id="refRemoveBtn" style="display:none;position:static;">Hapus</button>
+        </div>
+        <input type="file" id="refFileInput" accept="image/*" style="display:none">
         <div class="composer-inner">
           <textarea id="promptInput" rows="1" placeholder="Tanya soal script Luau, debug, atau minta dibuatkan module..."></textarea>
           <button class="send-btn image-btn" id="imageBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.5" fill="currentColor" stroke="none"/><path d="M21 15l-5-5-9 9"/></svg>Gambar</button>
           <button class="send-btn" id="sendBtn">Kirim</button>
         </div>
-        <div class="composer-hint">Enter untuk kirim · Shift+Enter untuk baris baru · Tombol Gambar untuk generate image dari teks</div>
+        <div class="composer-hint" id="composerHint">Enter untuk kirim · Shift+Enter untuk baris baru · Tombol Gambar untuk generate image dari teks</div>
       </div>
     </main>
   </div>
@@ -764,6 +775,99 @@ const imageBtn = $('imageBtn');
 const PROXY_URL = 'https://raps-proxy.ianmahesa02.workers.dev';
 let history = [];
 let busy = false;
+
+/* --- mode gambar: Teks->Gambar (default) atau Referensi->Gambar (img2img) --- */
+const modeChipText = $('modeChipText');
+const modeChipRef = $('modeChipRef');
+const refUploadRow = $('refUploadRow');
+const refFileInput = $('refFileInput');
+const refUploadBtn = $('refUploadBtn');
+const refFileName = $('refFileName');
+const refPreviewImg = $('refPreviewImg');
+const refRemoveBtn = $('refRemoveBtn');
+const composerHint = $('composerHint');
+
+let imageMode = 'text';
+let refImageBase64 = null;
+let refImageBlobFile = null;
+
+function setActiveModeChip(){
+  modeChipText.style.borderColor = imageMode === 'text' ? 'var(--flame)' : 'var(--line)';
+  modeChipText.style.color = imageMode === 'text' ? 'var(--ink)' : 'var(--mute)';
+  modeChipRef.style.borderColor = imageMode === 'reference' ? 'var(--flame)' : 'var(--line)';
+  modeChipRef.style.color = imageMode === 'reference' ? 'var(--ink)' : 'var(--mute)';
+  refUploadRow.style.display = imageMode === 'reference' ? 'flex' : 'none';
+  composerHint.textContent = imageMode === 'reference'
+    ? 'Upload gambar referensi lalu klik Gambar untuk generate berdasarkan gambar itu.'
+    : 'Enter untuk kirim · Shift+Enter untuk baris baru · Tombol Gambar untuk generate image dari teks';
+}
+modeChipText.addEventListener('click', () => { imageMode = 'text'; setActiveModeChip(); });
+modeChipRef.addEventListener('click', () => { imageMode = 'reference'; setActiveModeChip(); });
+setActiveModeChip();
+
+function clearRefImage(){
+  refImageBase64 = null;
+  refImageBlobFile = null;
+  refFileName.textContent = '';
+  refPreviewImg.style.display = 'none';
+  refPreviewImg.src = '';
+  refRemoveBtn.style.display = 'none';
+  refFileInput.value = '';
+}
+
+function downscaleImageToBase64(file, maxDim){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      let width = img.naturalWidth;
+      let height = img.naturalHeight;
+      if (width > maxDim || height > maxDim){
+        const scale = maxDim / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob((blob) => {
+        if (!blob){ reject(new Error('Gagal memproses gambar')); return; }
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = reader.result.split(',')[1];
+          resolve({ base64, blob });
+        };
+        reader.onerror = () => reject(new Error('Gagal membaca gambar'));
+        reader.readAsDataURL(blob);
+      }, 'image/jpeg', 0.9);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('File bukan gambar yang valid')); };
+    img.src = url;
+  });
+}
+
+async function handleRefFile(file){
+  if (!file) return;
+  if (!file.type.startsWith('image/')){ showToast('File harus berupa gambar', true); return; }
+  try {
+    const { base64, blob } = await downscaleImageToBase64(file, 1024);
+    refImageBase64 = base64;
+    refImageBlobFile = blob;
+    refPreviewImg.src = URL.createObjectURL(blob);
+    refPreviewImg.style.display = 'inline-block';
+    refFileName.textContent = file.name;
+    refRemoveBtn.style.display = 'inline-block';
+  } catch (err){
+    showToast(err.message || 'Gagal memproses gambar referensi', true);
+  }
+}
+
+refUploadBtn.addEventListener('click', () => refFileInput.click());
+refFileInput.addEventListener('change', (e) => handleRefFile(e.target.files[0]));
+refRemoveBtn.addEventListener('click', clearRefImage);
 
 const MODEL_CHAIN = [
   'llama-3.3-70b-versatile',
@@ -1056,6 +1160,20 @@ async function replayHistory(hist){
       } catch(e){
         bubble.innerHTML = renderMarkdownLite('(Gagal memuat gambar tersimpan)');
       }
+    } else if (m.refImageId){
+      const displayText = (m.content || '').replace('[Gambar] ', '');
+      const bubble = addMessage('user', displayText);
+      try {
+        const rec = await idbGet('images', m.refImageId);
+        if (rec && rec.blob){
+          const objectUrl = URL.createObjectURL(rec.blob);
+          bubble.innerHTML += `<img class="gen-image" style="max-width:160px;margin-top:8px;" src="${objectUrl}" alt="Gambar referensi">`;
+        } else {
+          bubble.innerHTML += renderMarkdownLite('(Gambar referensi tidak ditemukan lagi di penyimpanan lokal)');
+        }
+      } catch(e){
+        bubble.innerHTML += renderMarkdownLite('(Gagal memuat gambar referensi)');
+      }
     } else {
       addMessage(m.role === 'user' ? 'user' : 'assistant', m.content);
     }
@@ -1099,6 +1217,7 @@ function renderHistoryList(){
       if (deletedConv){
         for (const m of deletedConv.history){
           if (m.imageId) await idbDelete('images', m.imageId);
+          if (m.refImageId) await idbDelete('images', m.refImageId);
         }
       }
       if (id === currentConvId){
@@ -1264,9 +1383,31 @@ async function generateImage(){
   if (busy) return;
   const text = promptInput.value.trim();
   if (!text){ showToast('Tulis dulu deskripsi gambarnya', true); return; }
+  if (imageMode === 'reference' && !refImageBase64){
+    showToast('Upload gambar referensi dulu', true);
+    return;
+  }
 
-  addMessage('user', text);
-  history.push({ role: 'user', content: '[Gambar] ' + text });
+  const usingReference = imageMode === 'reference' && !!refImageBase64;
+
+  // simpan gambar referensi ke store 'images' yang sama dengan gambar hasil
+  // generate, supaya konsisten dan otomatis persist saat halaman di-refresh
+  let refImageIdForHistory = null;
+  if (usingReference){
+    refImageIdForHistory = 'refimg_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+    await idbPut('images', { id: refImageIdForHistory, blob: refImageBlobFile, createdAt: Date.now(), kind: 'reference' });
+  }
+
+  const userBubble = addMessage('user', text);
+  if (usingReference){
+    const refDisplayUrl = URL.createObjectURL(refImageBlobFile);
+    userBubble.innerHTML += `<img class="gen-image" style="max-width:160px;margin-top:8px;" src="${refDisplayUrl}" alt="Gambar referensi">`;
+  }
+
+  const userMsg = { role: 'user', content: '[Gambar] ' + text };
+  if (refImageIdForHistory) userMsg.refImageId = refImageIdForHistory;
+  history.push(userMsg);
+
   promptInput.value = '';
   autoResize();
   await saveCurrentConversation();
@@ -1277,10 +1418,14 @@ async function generateImage(){
   const bubble = addMessage('assistant', null);
 
   try {
+    const payload = usingReference
+      ? { type: 'image', mode: 'reference', prompt: text, refImage: refImageBase64, strength: 0.65 }
+      : { type: 'image', mode: 'text', prompt: text };
+
     const response = await fetch(PROXY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'image', prompt: text })
+      body: JSON.stringify(payload)
     });
 
     if (!response.ok){
@@ -1290,7 +1435,7 @@ async function generateImage(){
 
     const blob = await response.blob();
     const imageId = 'img_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
-    await idbPut('images', { id: imageId, blob: blob, createdAt: Date.now() });
+    await idbPut('images', { id: imageId, blob: blob, createdAt: Date.now(), kind: 'generated' });
 
     const objectUrl = URL.createObjectURL(blob);
     bubble.innerHTML = buildImageBubbleHtml(text, objectUrl);
@@ -1298,6 +1443,7 @@ async function generateImage(){
     history.push({ role: 'assistant', content: '[Gambar berhasil dibuat: ' + text + ']', imageId: imageId });
     await saveCurrentConversation();
     messagesEl.scrollTop = messagesEl.scrollHeight;
+    if (usingReference) clearRefImage();
   } catch (err){
     bubble.innerHTML = renderMarkdownLite('Gagal membuat gambar: ' + err.message);
     showToast('Gagal membuat gambar', true);
