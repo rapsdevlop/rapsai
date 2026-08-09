@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAPS DEV — Suite</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#0A0C12; --panel:#12151E; --panel2:#161A25; --line:#232838;
+    --ink:#E7EAF2; --mute:#6E7787; --flame:#4C86FF; --flame-dim:#2C4A8C;
+    --ember:#FFB454; --signal:#5EEAD4; --danger:#FF6B6B;
+    --font-display:'Space Grotesk',ui-sans-serif,system-ui,sans-serif;
+    --font-mono:'JetBrains Mono',ui-monospace,'SF Mono',Consolas,monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:var(--void);color:var(--ink);font-family:var(--font-display);
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(76,134,255,0.08), transparent 45%),
+      radial-gradient(circle at 85% 100%, rgba(94,234,212,0.06), transparent 45%);
+    display:flex;flex-direction:column;height:100vh;overflow:hidden;
+  }
+  ::-webkit-scrollbar{width:9px;height:9px;}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px;}
+  ::-webkit-scrollbar-thumb:hover{background:var(--flame-dim);}
+
+  header.top{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 22px;border-bottom:1px solid var(--line);flex-wrap:wrap;gap:10px;flex-shrink:0;
+  }
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand-mark{
+    width:34px;height:34px;border-radius:9px;flex-shrink:0;
+    background:linear-gradient(135deg,var(--flame),var(--flame-dim));
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-mono);font-weight:700;font-size:17px;color:#fff;
+    box-shadow:0 0 0 1px rgba(76,134,255,0.4), 0 8px 22px -8px rgba(76,134,255,0.6);
+  }
+  .brand-name{font-family:var(--font-mono);font-size:19px;font-weight:700;letter-spacing:0.5px;}
+  .brand-name .w2{color:var(--signal);}
+  .sub{font-size:11.5px;color:var(--mute);font-family:var(--font-mono);margin-top:1px;}
+
+  .tabbar{display:flex;gap:6px;}
+  .tab-btn{
+    font-family:var(--font-mono);font-size:12.5px;color:var(--mute);background:var(--panel);
+    border:1px solid var(--line);padding:8px 15px;border-radius:20px;cursor:pointer;transition:.15s;
+  }
+  .tab-btn:hover{color:var(--ink);border-color:var(--flame-dim);}
+  .tab-btn.active{color:#fff;background:var(--flame-dim);border-color:var(--flame);}
+
+  .layout{flex:1;display:flex;min-height:0;overflow:hidden;}
+  .view{flex:1;display:none;min-width:0;overflow:hidden;}
+  .view.active{display:flex;}
+
+  /* ===== Shared bits ===== */
+  .panel-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;}
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--panel2);border:1px solid var(--flame-dim);color:var(--ink);
+    font-family:var(--font-mono);font-size:12.5px;padding:11px 18px;border-radius:10px;
+    opacity:0;pointer-events:none;transition:.25s;z-index:50;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .toast.err{border-color:var(--danger);}
+
+  /* ===== AI tab ===== */
+  aside.side{
+    width:280px;flex-shrink:0;border-right:1px solid var(--line);background:var(--panel);
+    display:flex;flex-direction:column;overflow-y:auto;padding:16px;gap:14px;
+  }
+  .side-block{border:1px solid var(--line);border-radius:12px;background:var(--panel2);padding:13px;}
+  .side-title{
+    font-family:var(--font-mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;
+    color:var(--mute);margin-bottom:9px;display:flex;align-items:center;gap:6px;
+  }
+  .side-title .n{color:var(--flame);}
+  .key-input{
+    width:100%;font-family:var(--font-mono);font-size:12px;background:var(--void);
+    border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:9px 10px;
+    outline:none;margin-bottom:8px;
+  }
+  .key-input:focus{border-color:var(--flame);}
+  .key-hint{font-size:11px;color:var(--mute);line-height:1.5;}
+  .key-hint a{color:var(--signal);}
+  .save-btn{
+    font-family:var(--font-display);font-weight:600;font-size:12.5px;width:100%;
+    background:var(--flame-dim);color:#fff;border:1px solid var(--flame);border-radius:8px;
+    padding:8px;cursor:pointer;transition:.15s;
+  }
+  .save-btn:hover{filter:brightness(1.15);}
+  .chip-row{display:flex;flex-wrap:wrap;gap:6px;}
+  .chip{
+    font-family:var(--font-mono);font-size:11px;background:var(--void);border:1px solid var(--line);
+    color:var(--mute);padding:5px 9px;border-radius:16px;cursor:pointer;transition:.15s;
+  }
+  .chip:hover{border-color:var(--signal);color:var(--signal);}
+  .conv-rules{font-size:11.5px;color:var(--mute);line-height:1.7;margin:0;padding-left:16px;}
+  .new-chat-btn{
+    font-family:var(--font-display);font-weight:600;font-size:13px;background:transparent;
+    color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:9px;cursor:pointer;
+    transition:.15s;width:100%;
+  }
+  .new-chat-btn:hover{border-color:var(--danger);color:var(--danger);}
+
+  main.chatcol{flex:1;display:flex;flex-direction:column;min-width:0;}
+  .messages{flex:1;overflow-y:auto;padding:22px;display:flex;flex-direction:column;gap:16px;}
+  .empty-state{margin:auto;text-align:center;max-width:420px;color:var(--mute);}
+  .empty-mark{
+    width:48px;height:48px;border-radius:13px;margin:0 auto 14px;
+    background:linear-gradient(135deg,var(--flame),var(--flame-dim));
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-mono);font-weight:700;font-size:22px;color:#fff;
+  }
+  .empty-state h2{color:var(--ink);font-size:17px;margin:0 0 8px;}
+  .empty-state p{font-size:13px;line-height:1.6;margin:0 0 16px;}
+  .empty-examples{display:flex;flex-direction:column;gap:7px;}
+  .example-btn{
+    font-family:var(--font-mono);font-size:12px;text-align:center;background:var(--panel2);
+    border:1px solid var(--line);color:var(--mute);padding:9px 13px;border-radius:9px;
+    cursor:pointer;transition:.15s;letter-spacing:.2px;
+  }
+  .example-btn:hover{border-color:var(--flame);color:var(--ink);}
+  .msg{display:flex;gap:11px;max-width:760px;}
+  .msg.user{align-self:flex-end;flex-direction:row-reverse;}
+  .avatar{
+    width:28px;height:28px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;
+    justify-content:center;font-family:var(--font-mono);font-size:12px;font-weight:700;
+  }
+  .avatar.ai{background:linear-gradient(135deg,var(--flame),var(--flame-dim));color:#fff;}
+  .avatar.user{background:var(--panel2);border:1px solid var(--line);color:var(--signal);}
+  .bubble{
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 15px;
+    font-size:13.5px;line-height:1.65;overflow-wrap:anywhere;
+  }
+  .msg.user .bubble{background:var(--flame-dim);border-color:var(--flame);}
+  .bubble pre{
+    background:var(--void);border:1px solid var(--line);border-radius:9px;padding:12px 14px;
+    overflow-x:auto;margin:10px 0;position:relative;
+  }
+  .bubble code{font-family:var(--font-mono);font-size:12.5px;color:var(--signal);white-space:pre;}
+  .bubble p code:not(pre code){background:var(--void);padding:1px 5px;border-radius:4px;color:var(--ember);}
+  .code-copy{
+    position:absolute;top:8px;right:8px;font-family:var(--font-mono);font-size:10.5px;
+    background:var(--panel2);border:1px solid var(--line);color:var(--mute);padding:3px 8px;
+    border-radius:6px;cursor:pointer;
+  }
+  .code-copy:hover{color:var(--ink);border-color:var(--flame-dim);}
+  .bubble p{margin:0 0 8px;}
+  .bubble p:last-child{margin-bottom:0;}
+  .thinking{display:flex;gap:4px;align-items:center;padding:4px 0;}
+  .thinking span{width:6px;height:6px;border-radius:50%;background:var(--signal);animation:bounce 1.2s ease-in-out infinite;}
+  .thinking span:nth-child(2){animation-delay:.15s;}
+  .thinking span:nth-child(3){animation-delay:.3s;}
+  @keyframes bounce{0%,60%,100%{transform:translateY(0);opacity:.4;}30%{transform:translateY(-4px);opacity:1;}}
+  .composer{border-top:1px solid var(--line);padding:14px 20px;flex-shrink:0;}
+  .composer-inner{
+    display:flex;gap:10px;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:8px 8px 8px 16px;align-items:flex-end;transition:border-color .15s;
+  }
+  .composer-inner:focus-within{border-color:var(--flame);}
+  #promptInput{
+    flex:1;background:transparent;border:none;outline:none;color:var(--ink);
+    font-family:var(--font-mono);font-size:13.5px;line-height:1.5;resize:none;
+    max-height:150px;padding:8px 0;
+  }
+  #promptInput::placeholder{color:#3d4457;}
+  .send-btn{
+    font-family:var(--font-display);font-weight:600;font-size:13px;
+    background:linear-gradient(135deg,var(--flame),#3F6FE0);color:#fff;border:none;
+    border-radius:9px;padding:11px 18px;cursor:pointer;flex-shrink:0;transition:.15s;
+  }
+  .send-btn:hover{filter:brightness(1.08);}
+  .send-btn:disabled{opacity:.4;cursor:not-allowed;}
+  .composer-hint{font-size:10.5px;color:var(--mute);font-family:var(--font-mono);margin-top:7px;padding-left:4px;}
+
+  /* ===== Uploader + Assets tabs ===== */
+  .scroll-view{flex:1;overflow-y:auto;padding:26px;}
+  .form-shell{max-width:640px;margin:0 auto;}
+  .form-title{font-size:19px;font-weight:700;margin:0 0 4px;}
+  .form-sub{font-size:12.5px;color:var(--mute);margin:0 0 22px;line-height:1.6;}
+  .form-sub a{color:var(--signal);}
+  .field-group{margin-bottom:16px;}
+  .field-label{
+    font-family:var(--font-mono);font-size:11px;letter-spacing:.5px;text-transform:uppercase;
+    color:var(--mute);display:block;margin-bottom:7px;
+  }
+  .field-input, .field-select{
+    width:100%;font-family:var(--font-mono);font-size:13px;background:var(--panel2);
+    border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:11px 12px;outline:none;
+  }
+  .field-input:focus, .field-select:focus{border-color:var(--flame);}
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .drop-file{
+    border:1.5px dashed var(--line);border-radius:10px;padding:22px;text-align:center;
+    cursor:pointer;transition:.15s;background:var(--panel2);
+  }
+  .drop-file:hover{border-color:var(--flame-dim);}
+  .drop-file.has-file{border-color:var(--signal);border-style:solid;}
+  .drop-file-text{font-size:12.5px;color:var(--mute);font-family:var(--font-mono);}
+  .drop-file-text b{color:var(--ink);}
+  .primary-btn{
+    font-family:var(--font-display);font-weight:600;font-size:14px;
+    background:linear-gradient(135deg,var(--flame),#3F6FE0);color:#fff;border:none;
+    border-radius:10px;padding:12px 22px;cursor:pointer;transition:.15s;
+    box-shadow:0 10px 24px -10px rgba(76,134,255,0.6);
+  }
+  .primary-btn:hover{filter:brightness(1.08);}
+  .primary-btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;}
+  .op-log{
+    margin-top:20px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+    padding:14px 16px;font-family:var(--font-mono);font-size:12px;color:var(--mute);
+    line-height:1.8;max-height:220px;overflow-y:auto;
+  }
+  .op-log .line{display:flex;gap:8px;}
+  .op-log .line.ok{color:var(--signal);}
+  .op-log .line.err{color:var(--danger);}
+  .op-log .line.warn{color:var(--ember);}
+  .warn-box{
+    display:flex;gap:10px;background:rgba(255,180,84,0.08);border:1px solid rgba(255,180,84,0.3);
+    border-radius:10px;padding:12px 14px;font-size:12px;color:var(--ember);line-height:1.6;margin-bottom:20px;
+  }
+
+  /* Asset ID manager */
+  .assets-toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-end;}
+  .assets-toolbar .field-group{margin-bottom:0;flex:1;min-width:150px;}
+  .add-asset-btn{
+    font-family:var(--font-display);font-weight:600;font-size:13px;background:var(--flame-dim);
+    color:#fff;border:1px solid var(--flame);border-radius:9px;padding:11px 18px;cursor:pointer;flex-shrink:0;
+  }
+  .asset-search{margin-bottom:16px;}
+  table.asset-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  table.asset-table th{
+    text-align:left;font-family:var(--font-mono);font-size:10.5px;text-transform:uppercase;
+    letter-spacing:.5px;color:var(--mute);padding:9px 12px;border-bottom:1px solid var(--line);
+  }
+  table.asset-table td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  table.asset-table tr:hover td{background:var(--panel2);}
+  .tag-pill{
+    font-family:var(--font-mono);font-size:10.5px;background:var(--panel2);border:1px solid var(--line);
+    color:var(--mute);padding:3px 9px;border-radius:14px;display:inline-block;
+  }
+  .id-copy{
+    font-family:var(--font-mono);font-size:12px;color:var(--signal);cursor:pointer;background:none;
+    border:none;padding:0;text-decoration:underline dotted;
+  }
+  .row-del{
+    background:none;border:none;color:var(--mute);cursor:pointer;font-size:14px;padding:4px 8px;
+  }
+  .row-del:hover{color:var(--danger);}
+  .empty-assets{text-align:center;color:var(--mute);font-size:13px;padding:40px 0;}
+
+  /* Snippet library */
+  .snip-layout{display:flex;gap:20px;height:100%;}
+  .snip-list-col{width:280px;flex-shrink:0;display:flex;flex-direction:column;gap:12px;}
+  .snip-search{width:100%;}
+  .snip-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;}
+  .snip-item{
+    background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 12px;
+    cursor:pointer;transition:.15s;
+  }
+  .snip-item:hover{border-color:var(--flame-dim);}
+  .snip-item.active{border-color:var(--flame);background:var(--flame-dim);}
+  .snip-item-name{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:3px;}
+  .snip-item-tags{display:flex;gap:4px;flex-wrap:wrap;}
+  .snip-detail-col{flex:1;display:flex;flex-direction:column;min-width:0;}
+  .snip-empty{margin:auto;text-align:center;color:var(--mute);font-size:13px;}
+  .snip-editor{display:flex;flex-direction:column;gap:12px;height:100%;}
+  .snip-code-area{
+    width:100%;flex:1;min-height:260px;background:var(--void);border:1px solid var(--line);
+    border-radius:10px;color:var(--signal);font-family:var(--font-mono);font-size:12.5px;
+    line-height:1.6;padding:14px;outline:none;resize:vertical;
+  }
+  .snip-code-area:focus{border-color:var(--flame);}
+  .snip-actions{display:flex;gap:10px;justify-content:flex-end;}
+  .ghost-btn{
+    font-family:var(--font-display);font-weight:600;font-size:12.5px;background:transparent;
+    color:var(--mute);border:1px solid var(--line);border-radius:8px;padding:9px 15px;cursor:pointer;
+  }
+  .ghost-btn:hover{border-color:var(--danger);color:var(--danger);}
+  .op-status{display:flex;align-items:center;gap:8px;}
+  .op-status .status-dot{width:7px;height:7px;border-radius:50%;background:var(--ember);flex-shrink:0;animation:pulse 1s ease-in-out infinite;}
+  .op-status .status-dot.done{background:var(--signal);animation:none;}
+  .op-status .status-dot.failed{background:var(--danger);animation:none;}
+
+  /* Linter */
+  .lint-layout{display:flex;gap:16px;height:100%;padding:20px;}
+  .lint-col{flex:1;display:flex;flex-direction:column;min-width:0;}
+  .lint-panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;flex:1;overflow:hidden;}
+  .lint-panel-head{
+    display:flex;align-items:center;justify-content:space-between;padding:11px 15px;
+    border-bottom:1px solid var(--line);background:var(--panel2);
+    font-family:var(--font-mono);font-size:11.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--mute);
+  }
+  #lintInput{
+    flex:1;background:transparent;border:none;outline:none;color:var(--ink);
+    font-family:var(--font-mono);font-size:12.5px;line-height:1.6;padding:15px;resize:none;
+  }
+  #lintInput::placeholder{color:#3d4457;}
+  .lint-output{flex:1;overflow-y:auto;padding:10px 15px;font-family:var(--font-mono);font-size:12px;}
+  .lint-summary{display:flex;gap:14px;flex-wrap:wrap;}
+  .lint-summary span{display:flex;align-items:center;gap:6px;}
+  .lint-summary .sw{width:7px;height:7px;border-radius:50%;}
+  .sw.error{background:var(--danger);}
+  .sw.warn{background:var(--ember);}
+  .sw.info{background:var(--signal);}
+  .lint-issue{
+    display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);align-items:flex-start;
+  }
+  .lint-issue:last-child{border-bottom:none;}
+  .lint-issue .badge-sev{
+    flex-shrink:0;font-size:10px;padding:2px 7px;border-radius:5px;font-weight:700;letter-spacing:.3px;
+    margin-top:1px;
+  }
+  .badge-sev.error{background:rgba(255,107,107,0.15);color:var(--danger);}
+  .badge-sev.warn{background:rgba(255,180,84,0.15);color:var(--ember);}
+  .badge-sev.info{background:rgba(94,234,212,0.15);color:var(--signal);}
+  .lint-issue-body{flex:1;min-width:0;}
+  .lint-issue-msg{color:var(--ink);font-size:12.5px;line-height:1.5;}
+  .lint-issue-line{color:var(--mute);font-size:11px;margin-top:2px;}
+  .lint-clean{text-align:center;color:var(--mute);padding:40px 10px;font-size:12.5px;}
+  .lint-clean .sw{display:none;}
+
+  .loading-screen{
+    position:fixed;inset:0;z-index:999;background:var(--void);
+    display:flex;align-items:center;justify-content:center;
+    transition:opacity .5s ease, visibility .5s ease;
+  }
+  .loading-screen.hide{opacity:0;visibility:hidden;pointer-events:none;}
+  .loading-inner{display:flex;flex-direction:column;align-items:center;gap:14px;}
+  .loading-mark{
+    width:56px;height:56px;border-radius:14px;
+    background:linear-gradient(135deg,var(--flame),var(--flame-dim));
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-mono);font-weight:700;font-size:26px;color:#fff;
+    box-shadow:0 0 0 1px rgba(76,134,255,0.35), 0 12px 30px -10px rgba(76,134,255,0.65);
+    animation:loading-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes loading-pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.08);}}
+  .loading-title{
+    font-family:var(--font-mono);font-weight:700;font-size:21px;letter-spacing:1px;color:var(--ink);
+  }
+  .loading-title .w2{color:var(--signal);}
+  .loading-bar{width:220px;height:4px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:4px;}
+  .loading-bar-fill{
+    height:100%;width:0%;border-radius:4px;
+    background:linear-gradient(90deg,var(--flame),var(--signal),#FF6EC7,var(--flame));
+    background-size:300% 100%;animation:loading-gradient 2s linear infinite;transition:width .3s ease;
+  }
+  @keyframes loading-gradient{from{background-position:0% 50%;}to{background-position:300% 50%;}}
+  .loading-status{font-family:var(--font-mono);font-size:11.5px;color:var(--mute);}
+  @media (prefers-reduced-motion: reduce){
+    .loading-mark{animation:none;}
+    .loading-bar-fill{animation:none;}
+  }
+
+  @media (max-width:820px){
+    aside.side{position:fixed;left:0;top:0;bottom:0;z-index:40;transform:translateX(-100%);transition:.2s;box-shadow:20px 0 40px rgba(0,0,0,.4);width:260px;}
+    aside.side.open{transform:translateX(0);}
+    .menu-btn{display:flex !important;}
+    .field-row{grid-template-columns:1fr;}
+  }
+  .menu-btn{display:none;background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:7px 10px;cursor:pointer;font-size:16px;}
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loadingScreen">
+  <div class="loading-inner">
+    <div class="loading-mark">R</div>
+    <div class="loading-title">RAPS<span class="w2">DEV</span></div>
+    <div class="loading-bar"><div class="loading-bar-fill" id="loadingFill"></div></div>
+    <div class="loading-status" id="loadingStatus">Menyiapkan suite...</div>
+  </div>
+</div>
+
+<header class="top">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <button class="menu-btn" id="menuBtn">☰</button>
+    <div class="brand">
+      <div class="brand-mark">R</div>
+      <div>
+        <div class="brand-name">RAPS<span class="w2">DEV</span></div>
+        <div class="sub">Suite — AI · Uploader · Asset Manager</div>
+      </div>
+    </div>
+  </div>
+  <div class="tabbar">
+    <button class="tab-btn active" data-tab="ai">AI Assistant</button>
+    <button class="tab-btn" data-tab="upload">Open Cloud Uploader</button>
+    <button class="tab-btn" data-tab="assets">Asset ID Manager</button>
+    <button class="tab-btn" data-tab="snippets">Snippet Library</button>
+    <button class="tab-btn" data-tab="linter">Linter</button>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ===== AI TAB ===== -->
+  <div class="view active" id="view-ai">
+    <aside class="side" id="sideNav">
+      <div class="side-block">
+        <div class="side-title"><span class="n">01</span> API Key Anthropic</div>
+        <input type="password" id="apiKey" class="key-input" placeholder="sk-ant-...">
+        <button class="save-btn" id="saveKey">Simpan &amp; Sambungkan</button>
+      </div>
+      <div class="side-block">
+        <div class="side-title"><span class="n">02</span> Konteks Cepat</div>
+        <div class="chip-row">
+          <span class="chip" data-insert="Buatkan skeleton module untuk raps_system dengan Init(), Destroy(), Cleanup().">Boilerplate module</span>
+          <span class="chip" data-insert="Review script ini dan cari kemungkinan memory leak:\n\n">Review memory leak</span>
+          <span class="chip" data-insert="Jelaskan kenapa error ini terjadi:\n\n">Debug error</span>
+          <span class="chip" data-insert="Optimasi script ini biar lebih ringan:\n\n">Optimasi performa</span>
+        </div>
+      </div>
+      <div class="side-block">
+        <div class="side-title"><span class="n">03</span> Aturan Konvensi</div>
+        <ul class="conv-rules">
+          <li>Tanpa print() di manapun</li>
+          <li>Komentar cuma di paling atas</li>
+          <li>Connection wajib di-cleanup</li>
+          <li>Ringan &amp; crash-free</li>
+        </ul>
+      </div>
+      <button class="new-chat-btn" id="newChat">+ Percakapan Baru</button>
+    </aside>
+
+    <main class="chatcol">
+      <div class="messages" id="messages">
+        <div class="empty-state" id="emptyState">
+          <div class="empty-mark">R</div>
+          <h2>Tanya apa saja soal Luau &amp; Roblox</h2>
+          <div class="empty-examples">
+            <button class="example-btn" data-fill="Buatkan module OverheadModule yang clone BillboardGui ke kepala karakter.">OverheadModule generator</button>
+            <button class="example-btn" data-fill="Kenapa WalkSpeed nggak balik normal saat tool di-unequip? Ini scriptnya:">Debug WalkSpeed unequip</button>
+            <button class="example-btn" data-fill="Buatkan sistem carry pakai proxy BasePart yang di-weld ke HumanoidRootPart carrier.">Carry system proxy BasePart</button>
+          </div>
+        </div>
+      </div>
+      <div class="composer">
+        <div class="composer-inner">
+          <textarea id="promptInput" rows="1" placeholder="Tanya soal script Luau, debug, atau minta dibuatkan module..."></textarea>
+          <button class="send-btn" id="sendBtn">Kirim</button>
+        </div>
+        <div class="composer-hint">Enter untuk kirim · Shift+Enter untuk baris baru</div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== UPLOADER TAB ===== -->
+  <div class="view" id="view-upload">
+    <div class="scroll-view">
+      <div class="form-shell">
+        <h2 class="form-title">Open Cloud Asset Uploader</h2>
+
+        <div class="warn-box">⚠ Hanya untuk aset yang kamu miliki hak pakainya.</div>
+
+        <div class="field-group">
+          <label class="field-label">Roblox Open Cloud API Key</label>
+          <input type="password" id="robloxKey" class="field-input" placeholder="Paste API key di sini">
+        </div>
+
+        <div class="field-row">
+          <div class="field-group">
+            <label class="field-label">Tipe Creator</label>
+            <select id="creatorType" class="field-select">
+              <option value="User">User (akun pribadi)</option>
+              <option value="Group">Group</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Creator ID</label>
+            <input type="text" id="creatorId" class="field-input" placeholder="misal 123456789">
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-group">
+            <label class="field-label">Jenis Asset</label>
+            <select id="assetType" class="field-select">
+              <option value="Audio">Audio</option>
+              <option value="Decal">Decal (gambar)</option>
+              <option value="Model">Model (.fbx/.rbxm)</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Nama Display</label>
+            <input type="text" id="assetName" class="field-input" placeholder="misal SFX_ButtonClick">
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Deskripsi (opsional)</label>
+          <input type="text" id="assetDesc" class="field-input" placeholder="Catatan singkat tentang aset ini">
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">File</label>
+          <div class="drop-file" id="dropFile">
+            <div class="drop-file-text" id="dropFileText"><b>Klik untuk pilih file</b><br>atau drag &amp; drop ke sini</div>
+          </div>
+          <input type="file" id="fileInput" style="display:none">
+        </div>
+
+        <button class="primary-btn" id="btnUpload">Upload ke Roblox →</button>
+
+        <div class="op-log" id="opLog" style="display:none;"></div>
+
+        <details style="margin-top:24px;">
+          <summary style="font-size:12.5px;color:var(--signal);cursor:pointer;font-family:var(--font-mono);">Cara ambil API key Roblox</summary>
+          <ol style="font-size:12.5px;color:var(--mute);line-height:1.9;padding-left:20px;margin:12px 0 0;">
+            <li>Buka <a href="https://create.roblox.com/dashboard/credentials" target="_blank" style="color:var(--signal);">create.roblox.com/dashboard/credentials</a></li>
+            <li>Klik <b style="color:var(--ink);">Create API Key</b></li>
+            <li>Di <b style="color:var(--ink);">Access Permissions</b>, tambahkan API System <b style="color:var(--ink);">Assets</b> → centang <b style="color:var(--ink);">Read</b> dan <b style="color:var(--ink);">Write</b></li>
+            <li>Batasi ke User/Group ID kamu di bagian <b style="color:var(--ink);">Security</b></li>
+            <li>Simpan, lalu copy key (cuma muncul sekali)</li>
+          </ol>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ASSET MANAGER TAB ===== -->
+  <div class="view" id="view-assets">
+    <div class="scroll-view">
+      <div class="form-shell" style="max-width:820px;">
+        <h2 class="form-title">Asset ID Manager</h2>
+
+        <div class="assets-toolbar">
+          <div class="field-group">
+            <label class="field-label">Nama Asset</label>
+            <input type="text" id="newAssetName" class="field-input" placeholder="misal SFX_Coin_Pickup">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Asset ID</label>
+            <input type="text" id="newAssetId" class="field-input" placeholder="misal 123456789">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Kategori</label>
+            <input type="text" id="newAssetCat" class="field-input" placeholder="misal SFX UI" list="catList">
+            <datalist id="catList"></datalist>
+          </div>
+          <button class="add-asset-btn" id="btnAddAsset">+ Tambah</button>
+        </div>
+
+        <div class="field-group asset-search">
+          <input type="text" id="assetSearch" class="field-input" placeholder="Cari nama, ID, atau kategori...">
+        </div>
+
+        <table class="asset-table" id="assetTable">
+          <thead>
+            <tr><th>Nama</th><th>Asset ID</th><th>Kategori</th><th></th></tr>
+          </thead>
+          <tbody id="assetTbody"></tbody>
+        </table>
+        <div class="empty-assets" id="emptyAssets" style="display:none;">Belum ada asset tersimpan. Tambahkan di atas.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SNIPPET LIBRARY TAB ===== -->
+  <div class="view" id="view-snippets">
+    <div class="scroll-view" style="display:flex;">
+      <div class="snip-layout">
+        <div class="snip-list-col">
+          <input type="text" id="snipSearch" class="field-input snip-search" placeholder="Cari nama atau tag...">
+          <button class="add-asset-btn" id="btnNewSnip" style="width:100%;">+ Snippet Baru</button>
+          <div class="snip-list" id="snipList"></div>
+        </div>
+        <div class="snip-detail-col" id="snipDetailCol">
+          <div class="snip-empty" id="snipEmpty">Pilih snippet di kiri, atau buat baru.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== LINTER TAB ===== -->
+  <div class="view" id="view-linter">
+    <div class="lint-layout">
+      <div class="lint-col">
+        <div class="lint-panel">
+          <div class="lint-panel-head">
+            <span>Source</span>
+            <button class="ghost-btn" id="btnLintRun" style="padding:6px 14px;">Analisa →</button>
+          </div>
+          <textarea id="lintInput" spellcheck="false" placeholder="-- Tempel script Lua di sini untuk dicek konvensi &amp; performa"></textarea>
+        </div>
+      </div>
+      <div class="lint-col">
+        <div class="lint-panel">
+          <div class="lint-panel-head">
+            <span>Output</span>
+            <div class="lint-summary" id="lintSummary">
+              <span><span class="sw error"></span>0</span>
+              <span><span class="sw warn"></span>0</span>
+              <span><span class="sw info"></span>0</span>
+            </div>
+          </div>
+          <div class="lint-output" id="lintOutput">
+            <div class="lint-clean">Belum ada analisa. Tempel script lalu klik Analisa.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+function showToast(msg, isErr){
+  const el = $('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (isErr ? ' err' : '');
+  setTimeout(()=> el.classList.remove('show'), 2200);
+}
+
+/* ===================== TAB SWITCHING ===================== */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    btn.classList.add('active');
+    $('view-' + btn.dataset.tab).classList.add('active');
+  });
+});
+$('menuBtn').addEventListener('click', () => $('sideNav').classList.toggle('open'));
+
+/* ===================== AI ASSISTANT ===================== */
+const messagesEl = $('messages');
+const emptyState = $('emptyState');
+const promptInput = $('promptInput');
+const sendBtn = $('sendBtn');
+
+let apiKey = localStorage.getItem('raps_ai_key') || '';
+let history = [];
+let busy = false;
+
+const SYSTEM_PROMPT = `Kamu adalah RAPS AI, asisten koding khusus Luau dan Roblox Studio untuk developer bernama Roy yang sedang membangun game bernama RAPS.
+
+Ikuti aturan konvensi berikut TANPA KECUALI di setiap kode yang kamu tulis:
+1. Jangan pernah menulis pemanggilan print() di badan script manapun.
+2. Komentar hanya boleh diletakkan di baris paling atas script, tidak ada komentar inline atau per-section.
+3. Setiap koneksi event harus dilacak dan dibersihkan saat Destroy/Cleanup dipanggil.
+4. Script harus ringan, tidak boleh menyebabkan lag atau crash.
+
+Konteks arsitektur proyek RAPS: modul server di ServerStorage > raps_system dengan Handler, AdminModule, RankModule, DataModule, OverheadModule, ChatTagModule, EventModule, AnnouncementModule. Leaderboard global pakai OrderedDataStore. Ada sistem carry (proxy BasePart di-weld ke HumanoidRootPart), sistem cinematic multi-player, sistem shop/donasi dengan proteksi race condition.
+
+Jawab dalam Bahasa Indonesia yang santai tapi teknis dan padat. Kode dalam blok markdown lua. Jangan pernah menulis print() bahkan untuk contoh debug.`;
+
+if (apiKey) $('apiKey').value = apiKey;
+
+$('saveKey').addEventListener('click', () => {
+  const v = $('apiKey').value.trim();
+  if (!v){ showToast('Masukkan API key dulu', true); return; }
+  apiKey = v;
+  localStorage.setItem('raps_ai_key', v);
+  showToast('API key tersimpan');
+});
+
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    promptInput.value = chip.dataset.insert.replace(/\\n/g, '\n');
+    promptInput.focus();
+    autoResize();
+  });
+});
+document.querySelectorAll('.example-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    promptInput.value = btn.dataset.fill;
+    autoResize();
+    sendMessage();
+  });
+});
+$('newChat').addEventListener('click', () => {
+  history = [];
+  messagesEl.innerHTML = '';
+  messagesEl.appendChild(emptyState);
+  emptyState.style.display = 'block';
+});
+
+function autoResize(){
+  promptInput.style.height = 'auto';
+  promptInput.style.height = Math.min(promptInput.scrollHeight, 150) + 'px';
+}
+promptInput.addEventListener('input', autoResize);
+promptInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); }
+});
+sendBtn.addEventListener('click', sendMessage);
+
+function escapeHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function renderMarkdownLite(text){
+  const parts = text.split(/(```[\s\S]*?```)/g);
+  let html = '';
+  for (const part of parts){
+    if (part.startsWith('```')){
+      const match = part.match(/^```(\w*)\n?([\s\S]*?)```$/);
+      const code = match ? match[2] : part.slice(3, -3);
+      html += `<pre><button class="code-copy" onclick="copyCode(this)">Salin</button><code>${escapeHtml(code)}</code></pre>`;
+    } else {
+      const escaped = escapeHtml(part)
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/\n/g, '<br>');
+      html += `<p>${escaped}</p>`;
+    }
+  }
+  return html;
+}
+function copyCode(btn){
+  const code = btn.nextElementSibling.textContent;
+  navigator.clipboard.writeText(code).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = 'Tersalin';
+    setTimeout(() => btn.textContent = orig, 1200);
+  }).catch(() => showToast('Gagal menyalin', true));
+}
+function addMessage(role, content){
+  emptyState.style.display = 'none';
+  const msg = document.createElement('div');
+  msg.className = 'msg ' + role;
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar ' + role;
+  avatar.textContent = role === 'user' ? 'R' : 'AI';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  if (role === 'assistant' && content === null){
+    bubble.innerHTML = '<div class="thinking"><span></span><span></span><span></span></div>';
+  } else {
+    bubble.innerHTML = renderMarkdownLite(content);
+  }
+  msg.appendChild(avatar);
+  msg.appendChild(bubble);
+  messagesEl.appendChild(msg);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return bubble;
+}
+async function sendMessage(){
+  if (busy) return;
+  const text = promptInput.value.trim();
+  if (!text) return;
+  if (!apiKey){ showToast('Isi API key Anthropic dulu di panel kiri', true); return; }
+
+  addMessage('user', text);
+  history.push({ role: 'user', content: text });
+  promptInput.value = '';
+  autoResize();
+
+  busy = true;
+  sendBtn.disabled = true;
+  const bubble = addMessage('assistant', null);
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2000,
+        system: SYSTEM_PROMPT,
+        messages: history
+      })
+    });
+    if (!response.ok){
+      const errBody = await response.json().catch(() => ({}));
+      throw new Error(errBody?.error?.message || ('HTTP ' + response.status));
+    }
+    const data = await response.json();
+    const textBlocks = data.content.filter(b => b.type === 'text').map(b => b.text);
+    const replyText = textBlocks.join('\n\n') || '(tidak ada respons teks)';
+    bubble.innerHTML = renderMarkdownLite(replyText);
+    history.push({ role: 'assistant', content: replyText });
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  } catch (err){
+    bubble.innerHTML = renderMarkdownLite('Gagal menghubungi API: ' + err.message);
+    showToast('Terjadi error saat memanggil API', true);
+  } finally {
+    busy = false;
+    sendBtn.disabled = false;
+  }
+}
+
+/* ===================== OPEN CLOUD UPLOADER ===================== */
+let selectedFile = null;
+const dropFile = $('dropFile');
+const fileInput = $('fileInput');
+
+dropFile.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', (e) => setFile(e.target.files[0]));
+['dragenter','dragover'].forEach(evt => dropFile.addEventListener(evt, (e) => { e.preventDefault(); dropFile.classList.add('has-file'); }));
+dropFile.addEventListener('dragleave', () => { if (!selectedFile) dropFile.classList.remove('has-file'); });
+dropFile.addEventListener('drop', (e) => {
+  e.preventDefault();
+  setFile(e.dataTransfer.files[0]);
+});
+function setFile(f){
+  if (!f) return;
+  selectedFile = f;
+  dropFile.classList.add('has-file');
+  $('dropFileText').innerHTML = `<b>${f.name}</b><br>${(f.size/1024).toFixed(1)} KB — klik untuk ganti`;
+}
+
+function logLine(msg, cls){
+  const log = $('opLog');
+  log.style.display = 'block';
+  const line = document.createElement('div');
+  line.className = 'line' + (cls ? ' ' + cls : '');
+  line.textContent = msg;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+$('btnUpload').addEventListener('click', async () => {
+  const key = $('robloxKey').value.trim();
+  const creatorType = $('creatorType').value;
+  const creatorId = $('creatorId').value.trim();
+  const assetType = $('assetType').value;
+  const assetName = $('assetName').value.trim();
+  const assetDesc = $('assetDesc').value.trim();
+
+  if (!key){ showToast('Isi API key Roblox dulu', true); return; }
+  if (!creatorId){ showToast('Isi Creator ID', true); return; }
+  if (!assetName){ showToast('Isi nama asset', true); return; }
+  if (!selectedFile){ showToast('Pilih file dulu', true); return; }
+
+  $('opLog').innerHTML = '';
+  $('opLog').style.display = 'block';
+  $('btnUpload').disabled = true;
+  logLine('Menyiapkan request...');
+
+  try {
+    const requestJson = {
+      assetType: assetType,
+      displayName: assetName,
+      description: assetDesc || assetName,
+      creationContext: {
+        creator: creatorType === 'Group'
+          ? { groupId: creatorId }
+          : { userId: creatorId }
+      }
+    };
+
+    const formData = new FormData();
+    formData.append('request', JSON.stringify(requestJson));
+    formData.append('fileContent', selectedFile);
+
+    logLine('Mengirim ke Roblox Open Cloud...');
+    const res = await fetch('https://apis.roblox.com/assets/v1/assets', {
+      method: 'POST',
+      headers: { 'x-api-key': key },
+      body: formData
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok){
+      logLine('Gagal: ' + (data?.message || res.status), 'err');
+      showToast('Upload gagal, cek log', true);
+      $('btnUpload').disabled = false;
+      return;
+    }
+
+    const operationPath = data.path || data.operationId || '';
+    logLine('Request diterima, operation ID: ' + (operationPath || '-'), 'ok');
+    logLine('Menunggu hasil moderasi otomatis Roblox...');
+    addOpStatusRow('polling');
+
+    if (!operationPath){
+      logLine('Tidak ada operation ID untuk dipantau — cek manual di Creator Dashboard.', 'warn');
+      $('btnUpload').disabled = false;
+      return;
+    }
+
+    await pollOperation(key, operationPath);
+  } catch (err){
+    logLine('Error jaringan: ' + err.message, 'err');
+    showToast('Gagal upload, cek log', true);
+  } finally {
+    $('btnUpload').disabled = false;
+  }
+});
+
+function addOpStatusRow(state){
+  const log = $('opLog');
+  const row = document.createElement('div');
+  row.className = 'op-status';
+  row.id = 'opStatusRow';
+  row.innerHTML = `<span class="status-dot" id="opStatusDot"></span><span id="opStatusText" style="font-family:var(--font-mono);font-size:12px;color:var(--mute);">Memantau status moderasi...</span>`;
+  log.appendChild(row);
+  log.scrollTop = log.scrollHeight;
+}
+
+function setOpStatusRow(state, text){
+  const dot = $('opStatusDot');
+  const txt = $('opStatusText');
+  if (!dot || !txt) return;
+  dot.className = 'status-dot' + (state === 'done' ? ' done' : state === 'failed' ? ' failed' : '');
+  txt.textContent = text;
+}
+
+async function pollOperation(key, operationPath){
+  const url = operationPath.startsWith('http')
+    ? operationPath
+    : 'https://apis.roblox.com/assets/v1/' + operationPath.replace(/^\/+/, '');
+
+  const maxAttempts = 40;
+  const intervalMs = 4000;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++){
+    await new Promise(r => setTimeout(r, intervalMs));
+    try {
+      const res = await fetch(url, { headers: { 'x-api-key': key } });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok){
+        setOpStatusRow('polling', `Cek status gagal (percobaan ${attempt}/${maxAttempts}), mencoba lagi...`);
+        continue;
+      }
+
+      if (data.done){
+        if (data.response){
+          const assetId = data.response.assetId || data.response.id || '-';
+          setOpStatusRow('done', 'Selesai! Asset ID: ' + assetId);
+          logLine('Moderasi selesai, asset disetujui. Asset ID: ' + assetId, 'ok');
+          showToast('Asset disetujui: ' + assetId);
+          if (assetId && assetId !== '-'){
+            assets.unshift({ name: $('assetName').value.trim() || 'Untitled', id: String(assetId), cat: $('assetType').value });
+            saveAssets();
+          }
+        } else if (data.error){
+          setOpStatusRow('failed', 'Ditolak: ' + (data.error.message || 'alasan tidak diketahui'));
+          logLine('Asset ditolak moderasi: ' + (data.error.message || 'alasan tidak diketahui'), 'err');
+          showToast('Asset ditolak moderasi', true);
+        } else {
+          setOpStatusRow('done', 'Selesai.');
+          logLine('Operation selesai tanpa detail response.', 'warn');
+        }
+        return;
+      }
+      setOpStatusRow('polling', `Masih diproses Roblox... (cek ke-${attempt}/${maxAttempts})`);
+    } catch (err){
+      setOpStatusRow('polling', 'Gangguan jaringan saat polling, mencoba lagi...');
+    }
+  }
+  setOpStatusRow('failed', 'Timeout menunggu — cek status manual di Creator Dashboard.');
+  logLine('Berhenti memantau otomatis setelah timeout. Cek Creator Dashboard untuk status akhir.', 'warn');
+}
+
+/* ===================== ASSET ID MANAGER ===================== */
+let assets = JSON.parse(localStorage.getItem('raps_assets') || '[]');
+
+function saveAssets(){
+  localStorage.setItem('raps_assets', JSON.stringify(assets));
+}
+
+function renderAssets(filter){
+  const tbody = $('assetTbody');
+  tbody.innerHTML = '';
+  const f = (filter || '').toLowerCase();
+  const filtered = assets.filter(a =>
+    !f || a.name.toLowerCase().includes(f) || a.id.includes(f) || a.cat.toLowerCase().includes(f)
+  );
+
+  $('emptyAssets').style.display = filtered.length ? 'none' : 'block';
+  document.getElementById('assetTable').style.display = filtered.length ? 'table' : 'none';
+
+  filtered.forEach((a, idxInFiltered) => {
+    const realIdx = assets.indexOf(a);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(a.name)}</td>
+      <td><button class="id-copy" data-id="${escapeHtml(a.id)}">${escapeHtml(a.id)}</button></td>
+      <td><span class="tag-pill">${escapeHtml(a.cat || 'Umum')}</span></td>
+      <td style="text-align:right;"><button class="row-del" data-idx="${realIdx}">✕</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll('.id-copy').forEach(btn => {
+    btn.addEventListener('click', () => {
+      navigator.clipboard.writeText(btn.dataset.id).then(() => showToast('ID disalin: ' + btn.dataset.id));
+    });
+  });
+  tbody.querySelectorAll('.row-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      assets.splice(parseInt(btn.dataset.idx), 1);
+      saveAssets();
+      renderAssets($('assetSearch').value);
+      refreshCatList();
+    });
+  });
+}
+
+function refreshCatList(){
+  const cats = [...new Set(assets.map(a => a.cat).filter(Boolean))];
+  $('catList').innerHTML = cats.map(c => `<option value="${escapeHtml(c)}">`).join('');
+}
+
+$('btnAddAsset').addEventListener('click', () => {
+  const name = $('newAssetName').value.trim();
+  const id = $('newAssetId').value.trim();
+  const cat = $('newAssetCat').value.trim();
+  if (!name || !id){ showToast('Isi nama dan ID dulu', true); return; }
+  assets.unshift({ name, id, cat });
+  saveAssets();
+  $('newAssetName').value = '';
+  $('newAssetId').value = '';
+  $('newAssetCat').value = '';
+  renderAssets($('assetSearch').value);
+  refreshCatList();
+  showToast('Asset ditambahkan');
+});
+
+$('assetSearch').addEventListener('input', (e) => renderAssets(e.target.value));
+
+renderAssets('');
+refreshCatList();
+
+/* ===================== SNIPPET LIBRARY ===================== */
+let snippets = JSON.parse(localStorage.getItem('raps_snippets') || '[]');
+let activeSnipId = null;
+
+function saveSnippets(){
+  localStorage.setItem('raps_snippets', JSON.stringify(snippets));
+}
+
+function renderSnipList(filter){
+  const listEl = $('snipList');
+  listEl.innerHTML = '';
+  const f = (filter || '').toLowerCase();
+  const filtered = snippets.filter(s =>
+    !f || s.name.toLowerCase().includes(f) || (s.tags || '').toLowerCase().includes(f)
+  );
+
+  if (!filtered.length){
+    listEl.innerHTML = '<div style="color:var(--mute);font-size:12px;text-align:center;padding:20px 0;">Belum ada snippet.</div>';
+    return;
+  }
+
+  filtered.forEach(s => {
+    const item = document.createElement('div');
+    item.className = 'snip-item' + (s.id === activeSnipId ? ' active' : '');
+    const tagPills = (s.tags || '').split(',').map(t => t.trim()).filter(Boolean)
+      .map(t => `<span class="tag-pill">${escapeHtml(t)}</span>`).join('');
+    item.innerHTML = `<div class="snip-item-name">${escapeHtml(s.name)}</div><div class="snip-item-tags">${tagPills}</div>`;
+    item.addEventListener('click', () => openSnippet(s.id));
+    listEl.appendChild(item);
+  });
+}
+
+function openSnippet(id){
+  activeSnipId = id;
+  const s = snippets.find(x => x.id === id);
+  renderSnipList($('snipSearch').value);
+  if (!s){ showSnipEmpty(); return; }
+
+  const col = $('snipDetailCol');
+  col.innerHTML = `
+    <div class="snip-editor">
+      <div class="field-group" style="margin-bottom:0;">
+        <label class="field-label">Nama Snippet</label>
+        <input type="text" id="snipNameInput" class="field-input" value="${escapeHtml(s.name)}">
+      </div>
+      <div class="field-group" style="margin-bottom:0;">
+        <label class="field-label">Tags (pisah koma)</label>
+        <input type="text" id="snipTagsInput" class="field-input" value="${escapeHtml(s.tags || '')}" placeholder="misal admin, module, overhead">
+      </div>
+      <div class="field-group" style="flex:1;display:flex;flex-direction:column;margin-bottom:0;">
+        <label class="field-label">Kode Lua</label>
+        <textarea id="snipCodeInput" class="snip-code-area" spellcheck="false">${escapeHtml(s.code || '')}</textarea>
+      </div>
+      <div class="snip-actions">
+        <button class="ghost-btn" id="btnDeleteSnip">Hapus</button>
+        <button class="ghost-btn" id="btnCopySnip">Salin Kode</button>
+        <button class="primary-btn" id="btnSaveSnip" style="padding:9px 18px;font-size:12.5px;">Simpan</button>
+      </div>
+    </div>
+  `;
+
+  $('btnSaveSnip').addEventListener('click', () => {
+    s.name = $('snipNameInput').value.trim() || 'Untitled';
+    s.tags = $('snipTagsInput').value.trim();
+    s.code = $('snipCodeInput').value;
+    saveSnippets();
+    renderSnipList($('snipSearch').value);
+    showToast('Snippet disimpan');
+  });
+  $('btnCopySnip').addEventListener('click', () => {
+    navigator.clipboard.writeText($('snipCodeInput').value).then(() => showToast('Kode disalin'));
+  });
+  $('btnDeleteSnip').addEventListener('click', () => {
+    snippets = snippets.filter(x => x.id !== id);
+    saveSnippets();
+    activeSnipId = null;
+    renderSnipList($('snipSearch').value);
+    showSnipEmpty();
+    showToast('Snippet dihapus');
+  });
+}
+
+function showSnipEmpty(){
+  $('snipDetailCol').innerHTML = '<div class="snip-empty" id="snipEmpty">Pilih snippet di kiri, atau buat baru.</div>';
+}
+
+$('btnNewSnip').addEventListener('click', () => {
+  const id = 'snip_' + Date.now();
+  snippets.unshift({ id, name: 'Snippet Baru', tags: '', code: '' });
+  saveSnippets();
+  openSnippet(id);
+});
+
+$('snipSearch').addEventListener('input', (e) => renderSnipList(e.target.value));
+
+renderSnipList('');
+
+/* ===================== CONVENTION & PERFORMANCE LINTER ===================== */
+function stripStringsAndComments(line, state){
+  // Returns { clean, hasCommentOutsideTop } with strings blanked out (keeps length roughly)
+  let out = '';
+  let i = 0;
+  const n = line.length;
+  if (state.inBlockComment){
+    const closeIdx = line.indexOf(']]');
+    if (closeIdx === -1) return { clean: '', commentLine: true };
+    state.inBlockComment = false;
+    i = closeIdx + 2;
+  }
+  let commentLine = state.inBlockComment;
+  while (i < n){
+    const c = line[i];
+    if (c === '-' && line[i+1] === '-'){
+      if (line[i+2] === '[' && line[i+3] === '['){
+        const closeIdx = line.indexOf(']]', i+4);
+        commentLine = true;
+        if (closeIdx === -1){ state.inBlockComment = true; break; }
+        i = closeIdx + 2;
+        continue;
+      }
+      commentLine = true;
+      break;
+    }
+    if (c === '"' || c === "'"){
+      const quote = c;
+      out += ' ';
+      i++;
+      while (i < n && line[i] !== quote){
+        if (line[i] === '\\') i++;
+        out += ' ';
+        i++;
+      }
+      i++;
+      continue;
+    }
+    out += c;
+    i++;
+  }
+  return { clean: out, commentLine };
+}
+
+function analyzeLuaSource(src){
+  const lines = src.split('\n');
+  const issues = [];
+  const state = { inBlockComment: false };
+  let firstCodeSeen = false;
+  let hasConnect = false;
+  let hasDisconnect = false;
+  const getServiceCalls = {};
+  let busyLoopStack = [];
+
+  lines.forEach((rawLine, idx) => {
+    const lineNo = idx + 1;
+    const wasInBlockComment = state.inBlockComment;
+    const { clean, commentLine } = stripStringsAndComments(rawLine, state);
+    const trimmed = clean.trim();
+
+    if (commentLine || wasInBlockComment){
+      if (firstCodeSeen){
+        issues.push({ line: lineNo, sev: 'warn', cat: 'Konvensi', msg: 'Komentar ditemukan bukan di baris paling atas script.' });
+      }
+    } else if (trimmed){
+      firstCodeSeen = true;
+    }
+
+    if (!trimmed) return;
+
+    if (/\bprint\s*\(/.test(clean)){
+      issues.push({ line: lineNo, sev: 'error', cat: 'Konvensi', msg: 'Pemanggilan print() ditemukan — harus dihapus.' });
+    }
+
+    if (/:Connect\s*\(/.test(clean)){
+      hasConnect = true;
+      if (!/^\s*(local\s+)?[A-Za-z_][A-Za-z0-9_.]*\s*(=|,)/.test(clean) && !/=\s*[^=]*:Connect\s*\(/.test(clean)){
+        issues.push({ line: lineNo, sev: 'warn', cat: 'Konvensi', msg: ':Connect() tidak disimpan ke variabel — connection sulit di-cleanup.' });
+      }
+    }
+    if (/:Disconnect\s*\(/.test(clean)) hasDisconnect = true;
+
+    if (/(?<!task\.)\bwait\s*\(/.test(clean)){
+      issues.push({ line: lineNo, sev: 'warn', cat: 'Performa', msg: 'wait() dipakai — gunakan task.wait() (lebih ringan &amp; akurat).' });
+    }
+    if (/(?<!task\.)\bspawn\s*\(/.test(clean)){
+      issues.push({ line: lineNo, sev: 'warn', cat: 'Performa', msg: 'spawn() deprecated — gunakan task.spawn().' });
+    }
+    if (/(?<!task\.)\bdelay\s*\(/.test(clean)){
+      issues.push({ line: lineNo, sev: 'warn', cat: 'Performa', msg: 'delay() deprecated — gunakan task.delay().' });
+    }
+
+    if (/\bwhile\s+true\s+do\b/.test(clean)){
+      busyLoopStack.push({ line: lineNo, hasYield: false, depth: 0 });
+    }
+    if (busyLoopStack.length){
+      const top = busyLoopStack[busyLoopStack.length - 1];
+      if (/task\.wait|(?<!task\.)\bwait\s*\(|RunService|coroutine\.yield/.test(clean)) top.hasYield = true;
+      const opens = (clean.match(/\b(do|then|function)\b/g) || []).length;
+      const closes = (clean.match(/\bend\b/g) || []).length;
+      top.depth += opens - closes;
+      if (/\bwhile\s+true\s+do\b/.test(clean)) top.depth += 1;
+      if (top.depth <= 0){
+        busyLoopStack.pop();
+        if (!top.hasYield){
+          issues.push({ line: top.line, sev: 'error', cat: 'Performa', msg: 'while true do tanpa wait/task.wait di dalamnya — berisiko freeze/crash.' });
+        }
+      }
+    }
+
+    const gsMatch = clean.match(/GetService\s*\(\s*["']?(\w+)["']?\s*\)/);
+    if (gsMatch){
+      const svc = gsMatch[1];
+      getServiceCalls[svc] = (getServiceCalls[svc] || 0) + 1;
+    }
+
+    if (/\.\.\s*[A-Za-z_"']/.test(clean) && /\bfor\b|\bwhile\b/.test(clean) === false){
+      // handled separately below via loop-body heuristic if needed
+    }
+
+    if (/^\s*[A-Za-z_][A-Za-z0-9_]*\s*=\s*[^=]/.test(clean) && !/^\s*local\b/.test(clean) && !/^\s*(if|elseif|while|for|return|function)\b/.test(clean) && !/[.:]\w+\s*=/.test(clean)){
+      issues.push({ line: lineNo, sev: 'info', cat: 'Konvensi', msg: 'Kemungkinan assignment ke variabel global (tanpa local).' });
+    }
+  });
+
+  busyLoopStack.forEach(top => {
+    if (!top.hasYield){
+      issues.push({ line: top.line, sev: 'error', cat: 'Performa', msg: 'while true do tanpa wait/task.wait di dalamnya — berisiko freeze/crash.' });
+    }
+  });
+
+  Object.entries(getServiceCalls).forEach(([svc, count]) => {
+    if (count > 1){
+      issues.push({ line: null, sev: 'info', cat: 'Performa', msg: `GetService("${svc}") dipanggil ${count}x — sebaiknya cache sekali di atas script.` });
+    }
+  });
+
+  if (hasConnect && !hasDisconnect){
+    issues.push({ line: null, sev: 'warn', cat: 'Konvensi', msg: 'Ada :Connect() tapi tidak ditemukan :Disconnect() sama sekali di script — cek apakah cleanup sudah ditangani.' });
+  }
+
+  issues.sort((a, b) => (a.line || 0) - (b.line || 0));
+  return issues;
+}
+
+function renderLintResults(issues){
+  const out = $('lintOutput');
+  const counts = { error: 0, warn: 0, info: 0 };
+  issues.forEach(i => counts[i.sev]++);
+
+  $('lintSummary').innerHTML = `
+    <span><span class="sw error"></span>${counts.error}</span>
+    <span><span class="sw warn"></span>${counts.warn}</span>
+    <span><span class="sw info"></span>${counts.info}</span>
+  `;
+
+  if (!issues.length){
+    out.innerHTML = '<div class="lint-clean">Tidak ada temuan. Script sesuai konvensi &amp; heuristik performa dasar.</div>';
+    return;
+  }
+
+  const sevLabel = { error: 'ERROR', warn: 'WARN', info: 'INFO' };
+  out.innerHTML = issues.map(i => `
+    <div class="lint-issue">
+      <span class="badge-sev ${i.sev}">${sevLabel[i.sev]}</span>
+      <div class="lint-issue-body">
+        <div class="lint-issue-msg">${i.msg}</div>
+        <div class="lint-issue-line">${i.line ? 'Baris ' + i.line : 'Keseluruhan script'} · ${i.cat}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+$('btnLintRun').addEventListener('click', () => {
+  const src = $('lintInput').value;
+  if (!src.trim()){
+    showToast('Tempel script dulu', true);
+    return;
+  }
+  const issues = analyzeLuaSource(src);
+  renderLintResults(issues);
+});
+
+(function bootLoadingScreen(){
+  const screen = $('loadingScreen');
+  const fill = $('loadingFill');
+  const status = $('loadingStatus');
+  const steps = ['Menyiapkan suite...', 'Memuat modul AI, Uploader, Linter...', 'Menyusun RAPS DEV runtime...', 'Siap digunakan.'];
+  let i = 0;
+  const iv = setInterval(() => {
+    i++;
+    fill.style.width = Math.min(100, i * 25) + '%';
+    if (steps[i-1]) status.textContent = steps[i-1];
+    if (i >= steps.length){
+      clearInterval(iv);
+      setTimeout(() => {
+        screen.classList.add('hide');
+        setTimeout(() => screen.remove(), 600);
+      }, 300);
+    }
+  }, 350);
+})();
+</script>
+</body>
+</html>
