@@ -466,8 +466,13 @@
     aside.side.open{transform:translateX(0);}
     .menu-btn{display:flex !important;}
     .field-row{grid-template-columns:1fr;}
+    .sidebar-close-btn{display:flex;}
+    .sidebar-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:39;opacity:0;pointer-events:none;transition:.2s;}
+    .sidebar-backdrop.show{opacity:1;pointer-events:auto;}
   }
   .menu-btn{display:none;background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:7px 10px;cursor:pointer;font-size:16px;}
+  .sidebar-close-btn{display:none;position:absolute;top:10px;right:10px;background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:8px;width:30px;height:30px;align-items:center;justify-content:center;cursor:pointer;font-size:14px;z-index:2;}
+  .sidebar-backdrop{display:none;}
 </style>
 </head>
 <body>
@@ -506,6 +511,7 @@
   <!-- ===== AI TAB ===== -->
   <div class="view active" id="view-ai">
     <aside class="side" id="sideNav">
+      <button class="sidebar-close-btn" id="sidebarCloseBtn">✕</button>
       <div class="side-block">
         <div class="side-title"><span class="n">01</span> <span id="statusTitleText">Status AI</span></div>
         <div class="mode-panel active" data-mode="chat">
@@ -561,6 +567,7 @@
       </div>
       <button class="new-chat-btn" id="newChat">+ Percakapan Baru</button>
     </aside>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
     <main class="chatcol">
       <div class="messages" id="messages">
@@ -869,7 +876,19 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     $('view-' + btn.dataset.tab).classList.add('active');
   });
 });
-$('menuBtn').addEventListener('click', () => $('sideNav').classList.toggle('open'));
+function openSidebar(){
+  $('sideNav').classList.add('open');
+  $('sidebarBackdrop').classList.add('show');
+}
+function closeSidebar(){
+  $('sideNav').classList.remove('open');
+  $('sidebarBackdrop').classList.remove('show');
+}
+$('menuBtn').addEventListener('click', () => {
+  if ($('sideNav').classList.contains('open')) closeSidebar(); else openSidebar();
+});
+$('sidebarCloseBtn').addEventListener('click', closeSidebar);
+$('sidebarBackdrop').addEventListener('click', closeSidebar);
 
 /* ===================== AI ASSISTANT (Groq — gratis) ===================== */
 const messagesEl = $('messages');
