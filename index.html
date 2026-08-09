@@ -684,6 +684,65 @@ function showToast(msg, isErr){
   setTimeout(()=> el.classList.remove('show'), 2200);
 }
 
+/* ===================== INDEXEDDB (pengganti localStorage) ===================== */
+const DB_NAME = 'raps_dev_db';
+const DB_VERSION = 1;
+let dbPromise = null;
+
+function openDatabase(){
+  if (dbPromise) return dbPromise;
+  dbPromise = new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('conversations')) db.createObjectStore('conversations', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('assets')) db.createObjectStore('assets', { keyPath: 'key' });
+      if (!db.objectStoreNames.contains('snippets')) db.createObjectStore('snippets', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('images')) db.createObjectStore('images', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', { keyPath: 'key' });
+    };
+    req.onsuccess = (e) => resolve(e.target.result);
+    req.onerror = (e) => reject(e.target.error);
+  });
+  return dbPromise;
+}
+async function idbGetAll(storeName){
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readonly');
+    const req = tx.objectStore(storeName).getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbGet(storeName, key){
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readonly');
+    const req = tx.objectStore(storeName).get(key);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbPut(storeName, value){
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readwrite');
+    tx.objectStore(storeName).put(value);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function idbDelete(storeName, key){
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readwrite');
+    tx.objectStore(storeName).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 /* ===================== TAB SWITCHING ===================== */
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -721,7 +780,7 @@ Ikuti aturan konvensi berikut TANPA KECUALI di setiap kode yang kamu tulis:
 4. Script harus ringan, tidak boleh menyebabkan lag atau crash.
 5. Saat memperbaiki (fix/debug) ATAU membuat sistem/module baru, SELALU tulis ulang seluruh script secara utuh dari baris pertama sampai terakhir dalam satu blok kode — jangan pernah cuma menunjukkan potongan/diff/bagian yang berubah saja, kecuali user secara eksplisit minta cuma potongan tertentu. Ini supaya Roy tinggal copy-paste langsung tanpa harus menggabung manual.
 
-Konteks arsitektur proyek RAPS: modul server di ServerStorage > raps_system dengan Handler, AdminModule, RankModule, DataModule, OverheadModule, ChatTagModule, EventModule, AnnouncementModule. Leaderboard global pakai OrderedDataStore. Ada sistem carry (proxy BasePart di-weld ke HumanoidRootPart), sistem cinematic multi-player, sistem shop/donasi dengan proteksi race condition.
+Konteks arsitektur proyek RAPS: modul server di ServerStorage > raps_system dengan Handler, AdminModule, RankModule, DataModule, OverheadModule, ChatTagModule, EventModule, AnnouncementModule. Leaderboard global pakai OrderedDataStore. Ada sistem carry (proxy BasePart di-weld ke HumanoidRootPart carrier), sistem cinematic multi-player, sistem shop/donasi dengan proteksi race condition.
 
 Jawab dalam Bahasa Indonesia yang santai tapi teknis dan padat. Kode dalam blok markdown lua. Jangan pernah menulis print() bahkan untuk contoh debug.`;
 
@@ -934,17 +993,10 @@ function addMessage(role, content){
   return bubble;
 }
 
-/* --- persistent chat history (localStorage, multi-conversation) --- */
+/* --- persistent chat history (IndexedDB, multi-conversation) --- */
 let conversations = [];
 let currentConvId = null;
 
-function loadConversations(){
-  try { return JSON.parse(localStorage.getItem('raps_conversations') || '[]'); }
-  catch(e){ return []; }
-}
-function saveConversations(arr){
-  localStorage.setItem('raps_conversations', JSON.stringify(arr));
-}
 function generateConvId(){
   return 'conv_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
 }
@@ -958,7 +1010,7 @@ function deriveTitle(hist){
   if (!t) return 'Percakapan Baru';
   return t.length > 30 ? t.slice(0, 30) + '\u2026' : t;
 }
-function saveCurrentConversation(){
+async function saveCurrentConversation(){
   let conv = conversations.find(c => c.id === currentConvId);
   if (!conv){
     conv = { id: currentConvId, title: 'Percakapan Baru', history: [], updatedAt: Date.now() };
@@ -967,10 +1019,19 @@ function saveCurrentConversation(){
   conv.history = history;
   conv.title = deriveTitle(history);
   conv.updatedAt = Date.now();
-  saveConversations(conversations);
+  await idbPut('conversations', conv);
   renderHistoryList();
 }
-function replayHistory(hist){
+function buildImageBubbleHtml(promptText, imgSrc){
+  return `
+    <p>Gambar untuk: "${escapeHtml(promptText)}"</p>
+    <img class="gen-image" src="${imgSrc}" alt="Generated image">
+    <div class="image-actions">
+      <button class="code-copy" onclick="downloadImage(this)" data-src="${imgSrc}">Unduh</button>
+    </div>
+  `;
+}
+async function replayHistory(hist){
   messagesEl.innerHTML = '';
   codeBlockCounter = 0;
   codeRegistry = {};
@@ -980,15 +1041,33 @@ function replayHistory(hist){
     emptyState.style.display = 'block';
     return;
   }
-  hist.forEach(m => addMessage(m.role === 'user' ? 'user' : 'assistant', m.content));
+  for (const m of hist){
+    if (m.imageId){
+      const bubble = addMessage('assistant', null);
+      try {
+        const rec = await idbGet('images', m.imageId);
+        if (rec && rec.blob){
+          const objectUrl = URL.createObjectURL(rec.blob);
+          const promptText = (m.content || '').replace('[Gambar berhasil dibuat: ', '').replace(/\]$/, '');
+          bubble.innerHTML = buildImageBubbleHtml(promptText, objectUrl);
+        } else {
+          bubble.innerHTML = renderMarkdownLite('(Gambar tidak ditemukan lagi di penyimpanan lokal)');
+        }
+      } catch(e){
+        bubble.innerHTML = renderMarkdownLite('(Gagal memuat gambar tersimpan)');
+      }
+    } else {
+      addMessage(m.role === 'user' ? 'user' : 'assistant', m.content);
+    }
+  }
 }
-function switchConversation(id){
+async function switchConversation(id){
   const conv = conversations.find(c => c.id === id);
   if (!conv) return;
   currentConvId = id;
   history = conv.history.slice();
-  replayHistory(history);
-  localStorage.setItem('raps_active_conv', currentConvId);
+  await replayHistory(history);
+  await idbPut('meta', { key: 'active_conv', value: currentConvId });
   renderHistoryList();
 }
 function renderHistoryList(){
@@ -1011,36 +1090,42 @@ function renderHistoryList(){
     });
   });
   el.querySelectorAll('.h-del').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', async (e) => {
       e.stopPropagation();
       const id = btn.dataset.del;
+      const deletedConv = conversations.find(c => c.id === id);
       conversations = conversations.filter(c => c.id !== id);
-      saveConversations(conversations);
+      await idbDelete('conversations', id);
+      if (deletedConv){
+        for (const m of deletedConv.history){
+          if (m.imageId) await idbDelete('images', m.imageId);
+        }
+      }
       if (id === currentConvId){
         if (conversations.length){
-          switchConversation(conversations.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0].id);
+          await switchConversation(conversations.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0].id);
         } else {
           const conv = createNewConversation();
           conversations.unshift(conv);
           currentConvId = conv.id;
           history = [];
-          replayHistory([]);
-          saveConversations(conversations);
-          localStorage.setItem('raps_active_conv', currentConvId);
+          await replayHistory([]);
+          await idbPut('conversations', conv);
+          await idbPut('meta', { key: 'active_conv', value: currentConvId });
         }
       }
       renderHistoryList();
     });
   });
 }
-$('newChat').addEventListener('click', () => {
+$('newChat').addEventListener('click', async () => {
   const conv = createNewConversation();
   conversations.unshift(conv);
   currentConvId = conv.id;
   history = [];
-  replayHistory([]);
-  saveConversations(conversations);
-  localStorage.setItem('raps_active_conv', currentConvId);
+  await replayHistory([]);
+  await idbPut('conversations', conv);
+  await idbPut('meta', { key: 'active_conv', value: currentConvId });
   renderHistoryList();
 });
 
@@ -1103,7 +1188,7 @@ async function sendMessage(){
   history.push({ role: 'user', content: text });
   promptInput.value = '';
   autoResize();
-  saveCurrentConversation();
+  await saveCurrentConversation();
 
   busy = true;
   sendBtn.disabled = true;
@@ -1155,7 +1240,7 @@ async function sendMessage(){
     bubble.innerHTML = renderMarkdownLite(replyText);
     history.push({ role: 'assistant', content: replyText });
     updateModelBadge(usedModel);
-    saveCurrentConversation();
+    await saveCurrentConversation();
     messagesEl.scrollTop = messagesEl.scrollHeight;
   } else {
     let hint = '';
@@ -1170,7 +1255,11 @@ async function sendMessage(){
   sendBtn.disabled = false;
 }
 
-/* --- image generation via proxy (Cloudflare Workers AI) --- */
+/* --- image generation via proxy (Cloudflare Workers AI) ---
+   Worker sekarang balikin file binary (Content-Type: image/png) langsung saat
+   sukses, jadi di sini cukup response.blob() — tidak ada base64 yang lewat
+   atau ditangani di browser sama sekali. Blob-nya disimpan permanen ke
+   IndexedDB supaya gambar tetap ada walau halaman di-refresh. */
 async function generateImage(){
   if (busy) return;
   const text = promptInput.value.trim();
@@ -1180,7 +1269,7 @@ async function generateImage(){
   history.push({ role: 'user', content: '[Gambar] ' + text });
   promptInput.value = '';
   autoResize();
-  saveCurrentConversation();
+  await saveCurrentConversation();
 
   busy = true;
   sendBtn.disabled = true;
@@ -1193,22 +1282,21 @@ async function generateImage(){
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'image', prompt: text })
     });
-    const data = await response.json().catch(() => ({}));
 
-    if (!response.ok || !data.image){
-      throw new Error(data?.error || ('HTTP ' + response.status));
+    if (!response.ok){
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData?.error || ('HTTP ' + response.status));
     }
 
-    const src = 'data:image/png;base64,' + data.image;
-    bubble.innerHTML = `
-      <p>Gambar untuk: "${escapeHtml(text)}"</p>
-      <img class="gen-image" src="${src}" alt="Generated image">
-      <div class="image-actions">
-        <button class="code-copy" onclick="downloadImage(this)" data-src="${src}">Unduh</button>
-      </div>
-    `;
-    history.push({ role: 'assistant', content: '[Gambar berhasil dibuat: ' + text + ']' });
-    saveCurrentConversation();
+    const blob = await response.blob();
+    const imageId = 'img_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+    await idbPut('images', { id: imageId, blob: blob, createdAt: Date.now() });
+
+    const objectUrl = URL.createObjectURL(blob);
+    bubble.innerHTML = buildImageBubbleHtml(text, objectUrl);
+
+    history.push({ role: 'assistant', content: '[Gambar berhasil dibuat: ' + text + ']', imageId: imageId });
+    await saveCurrentConversation();
     messagesEl.scrollTop = messagesEl.scrollHeight;
   } catch (err){
     bubble.innerHTML = renderMarkdownLite('Gagal membuat gambar: ' + err.message);
@@ -1231,9 +1319,10 @@ function downloadImage(btn){
 imageBtn.addEventListener('click', generateImage);
 
 /* --- boot: restore conversations & active chat --- */
-(function bootAiHistory(){
-  conversations = loadConversations();
-  let activeId = localStorage.getItem('raps_active_conv');
+(async function bootAiHistory(){
+  conversations = await idbGetAll('conversations');
+  const activeMeta = await idbGet('meta', 'active_conv');
+  let activeId = activeMeta ? activeMeta.value : null;
   if (!activeId || !conversations.find(c => c.id === activeId)){
     if (conversations.length){
       activeId = conversations.sort((a,b) => (b.updatedAt||0) - (a.updatedAt||0))[0].id;
@@ -1241,14 +1330,14 @@ imageBtn.addEventListener('click', generateImage);
       const conv = createNewConversation();
       conversations.push(conv);
       activeId = conv.id;
-      saveConversations(conversations);
+      await idbPut('conversations', conv);
     }
-    localStorage.setItem('raps_active_conv', activeId);
+    await idbPut('meta', { key: 'active_conv', value: activeId });
   }
   currentConvId = activeId;
   const conv = conversations.find(c => c.id === currentConvId);
   history = conv ? conv.history.slice() : [];
-  replayHistory(history);
+  await replayHistory(history);
   renderHistoryList();
   updateModelBadge(MODEL_CHAIN[0]);
 })();
@@ -1398,8 +1487,17 @@ async function pollOperation(key, operationPath){
           logLine('Moderasi selesai, asset disetujui. Asset ID: ' + assetId, 'ok');
           showToast('Asset disetujui: ' + assetId);
           if (assetId && assetId !== '-'){
-            assets.unshift({ name: $('assetName').value.trim() || 'Untitled', id: String(assetId), cat: $('assetType').value });
-            saveAssets();
+            const obj = {
+              key: 'asset_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+              name: $('assetName').value.trim() || 'Untitled',
+              id: String(assetId),
+              cat: $('assetType').value,
+              createdAt: Date.now()
+            };
+            assets.unshift(obj);
+            await idbPut('assets', obj);
+            renderAssets($('assetSearch').value);
+            refreshCatList();
           }
         } else if (data.error){
           setOpStatusRow('failed', 'Ditolak: ' + (data.error.message || 'alasan tidak diketahui'));
@@ -1420,12 +1518,8 @@ async function pollOperation(key, operationPath){
   logLine('Berhenti memantau otomatis setelah timeout. Cek Creator Dashboard untuk status akhir.', 'warn');
 }
 
-/* ===================== ASSET ID MANAGER ===================== */
-let assets = JSON.parse(localStorage.getItem('raps_assets') || '[]');
-
-function saveAssets(){
-  localStorage.setItem('raps_assets', JSON.stringify(assets));
-}
+/* ===================== ASSET ID MANAGER (IndexedDB) ===================== */
+let assets = [];
 
 function renderAssets(filter){
   const tbody = $('assetTbody');
@@ -1438,14 +1532,13 @@ function renderAssets(filter){
   $('emptyAssets').style.display = filtered.length ? 'none' : 'block';
   document.getElementById('assetTable').style.display = filtered.length ? 'table' : 'none';
 
-  filtered.forEach((a, idxInFiltered) => {
-    const realIdx = assets.indexOf(a);
+  filtered.forEach(a => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${escapeHtml(a.name)}</td>
       <td><button class="id-copy" data-id="${escapeHtml(a.id)}">${escapeHtml(a.id)}</button></td>
       <td><span class="tag-pill">${escapeHtml(a.cat || 'Umum')}</span></td>
-      <td style="text-align:right;"><button class="row-del" data-idx="${realIdx}">✕</button></td>
+      <td style="text-align:right;"><button class="row-del" data-key="${escapeHtml(a.key)}">✕</button></td>
     `;
     tbody.appendChild(tr);
   });
@@ -1456,9 +1549,10 @@ function renderAssets(filter){
     });
   });
   tbody.querySelectorAll('.row-del').forEach(btn => {
-    btn.addEventListener('click', () => {
-      assets.splice(parseInt(btn.dataset.idx), 1);
-      saveAssets();
+    btn.addEventListener('click', async () => {
+      const key = btn.dataset.key;
+      assets = assets.filter(a => a.key !== key);
+      await idbDelete('assets', key);
       renderAssets($('assetSearch').value);
       refreshCatList();
     });
@@ -1470,13 +1564,14 @@ function refreshCatList(){
   $('catList').innerHTML = cats.map(c => `<option value="${escapeHtml(c)}">`).join('');
 }
 
-$('btnAddAsset').addEventListener('click', () => {
+$('btnAddAsset').addEventListener('click', async () => {
   const name = $('newAssetName').value.trim();
   const id = $('newAssetId').value.trim();
   const cat = $('newAssetCat').value.trim();
   if (!name || !id){ showToast('Isi nama dan ID dulu', true); return; }
-  assets.unshift({ name, id, cat });
-  saveAssets();
+  const obj = { key: 'asset_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), name, id, cat, createdAt: Date.now() };
+  assets.unshift(obj);
+  await idbPut('assets', obj);
   $('newAssetName').value = '';
   $('newAssetId').value = '';
   $('newAssetCat').value = '';
@@ -1487,16 +1582,16 @@ $('btnAddAsset').addEventListener('click', () => {
 
 $('assetSearch').addEventListener('input', (e) => renderAssets(e.target.value));
 
-renderAssets('');
-refreshCatList();
+(async function initAssets(){
+  assets = await idbGetAll('assets');
+  assets.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+  renderAssets('');
+  refreshCatList();
+})();
 
-/* ===================== SNIPPET LIBRARY ===================== */
-let snippets = JSON.parse(localStorage.getItem('raps_snippets') || '[]');
+/* ===================== SNIPPET LIBRARY (IndexedDB) ===================== */
+let snippets = [];
 let activeSnipId = null;
-
-function saveSnippets(){
-  localStorage.setItem('raps_snippets', JSON.stringify(snippets));
-}
 
 function renderSnipList(filter){
   const listEl = $('snipList');
@@ -1551,20 +1646,20 @@ function openSnippet(id){
     </div>
   `;
 
-  $('btnSaveSnip').addEventListener('click', () => {
+  $('btnSaveSnip').addEventListener('click', async () => {
     s.name = $('snipNameInput').value.trim() || 'Untitled';
     s.tags = $('snipTagsInput').value.trim();
     s.code = $('snipCodeInput').value;
-    saveSnippets();
+    await idbPut('snippets', s);
     renderSnipList($('snipSearch').value);
     showToast('Snippet disimpan');
   });
   $('btnCopySnip').addEventListener('click', () => {
     navigator.clipboard.writeText($('snipCodeInput').value).then(() => showToast('Kode disalin'));
   });
-  $('btnDeleteSnip').addEventListener('click', () => {
+  $('btnDeleteSnip').addEventListener('click', async () => {
     snippets = snippets.filter(x => x.id !== id);
-    saveSnippets();
+    await idbDelete('snippets', id);
     activeSnipId = null;
     renderSnipList($('snipSearch').value);
     showSnipEmpty();
@@ -1576,16 +1671,20 @@ function showSnipEmpty(){
   $('snipDetailCol').innerHTML = '<div class="snip-empty" id="snipEmpty">Pilih snippet di kiri, atau buat baru.</div>';
 }
 
-$('btnNewSnip').addEventListener('click', () => {
+$('btnNewSnip').addEventListener('click', async () => {
   const id = 'snip_' + Date.now();
-  snippets.unshift({ id, name: 'Snippet Baru', tags: '', code: '' });
-  saveSnippets();
+  const obj = { id, name: 'Snippet Baru', tags: '', code: '' };
+  snippets.unshift(obj);
+  await idbPut('snippets', obj);
   openSnippet(id);
 });
 
 $('snipSearch').addEventListener('input', (e) => renderSnipList(e.target.value));
 
-renderSnipList('');
+(async function initSnippets(){
+  snippets = await idbGetAll('snippets');
+  renderSnipList('');
+})();
 
 /* ===================== CONVENTION & PERFORMANCE LINTER ===================== */
 function stripStringsAndComments(line, state){
