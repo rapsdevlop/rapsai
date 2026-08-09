@@ -124,6 +124,9 @@
   }
   .model-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--signal);flex-shrink:0;}
 
+  .mode-panel{display:none;}
+  .mode-panel.active{display:block;}
+
   .stream-cursor{display:inline-block;width:7px;height:14px;background:var(--signal);margin-left:2px;vertical-align:text-bottom;animation:blink 0.9s steps(1) infinite;}
   @keyframes blink{50%{opacity:0;}}
 
@@ -165,6 +168,7 @@
     cursor:pointer;transition:.15s;letter-spacing:.2px;
   }
   .example-btn:hover{border-color:var(--flame);color:var(--ink);}
+  .example-btn.img-mode:hover{border-color:#B357FF;color:var(--ink);}
   .msg{display:flex;gap:11px;max-width:760px;}
   .msg.user{align-self:flex-end;flex-direction:row-reverse;}
   .avatar{
@@ -207,18 +211,45 @@
   .thinking span:nth-child(2){animation-delay:.15s;}
   .thinking span:nth-child(3){animation-delay:.3s;}
   @keyframes bounce{0%,60%,100%{transform:translateY(0);opacity:.4;}30%{transform:translateY(-4px);opacity:1;}}
+
+  /* ===== Composer mode switch (Tanya AI vs Buat Gambar) ===== */
   .composer{border-top:1px solid var(--line);padding:14px 20px;flex-shrink:0;}
+  .composer-mode-switch{
+    display:flex;gap:6px;margin-bottom:10px;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:4px;
+  }
+  .composer-mode-btn{
+    flex:1;display:flex;align-items:center;justify-content:center;gap:7px;
+    font-family:var(--font-display);font-weight:600;font-size:12.5px;
+    background:transparent;color:var(--mute);border:none;border-radius:9px;
+    padding:9px 10px;cursor:pointer;transition:.15s;
+  }
+  .composer-mode-btn svg{width:14px;height:14px;flex-shrink:0;}
+  .composer-mode-btn:hover{color:var(--ink);}
+  .composer-mode-btn.active{color:#fff;}
+  .composer-mode-btn.active[data-composer-mode="chat"]{
+    background:linear-gradient(135deg,var(--flame),#3F6FE0);
+    box-shadow:0 6px 16px -6px rgba(76,134,255,0.55);
+  }
+  .composer-mode-btn.active[data-composer-mode="image"]{
+    background:linear-gradient(135deg,#FF6EC7,#B357FF);
+    box-shadow:0 6px 16px -6px rgba(179,87,255,0.55);
+  }
+  .composer-panel{display:none;}
+  .composer-panel.active{display:block;}
+
   .composer-inner{
     display:flex;gap:10px;background:var(--panel);border:1px solid var(--line);
     border-radius:12px;padding:8px 8px 8px 16px;align-items:flex-end;transition:border-color .15s;
   }
   .composer-inner:focus-within{border-color:var(--flame);}
-  #promptInput{
+  .composer-inner.mode-image:focus-within{border-color:#B357FF;}
+  #promptInputChat, #promptInputImage{
     flex:1;background:transparent;border:none;outline:none;color:var(--ink);
     font-family:var(--font-mono);font-size:13.5px;line-height:1.5;resize:none;
-    max-height:150px;padding:8px 0;
+    max-height:150px;padding:8px 0;appearance:none;-webkit-appearance:none;box-shadow:none;
   }
-  #promptInput::placeholder{color:#3d4457;}
+  #promptInputChat::placeholder, #promptInputImage::placeholder{color:#3d4457;}
   .send-btn{
     font-family:var(--font-display);font-weight:600;font-size:13px;
     background:linear-gradient(135deg,var(--flame),#3F6FE0);color:#fff;border:none;
@@ -234,7 +265,21 @@
   .image-btn:hover{filter:brightness(1.12);box-shadow:0 8px 20px -6px rgba(179,87,255,0.7);}
   .image-btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;}
   .image-btn svg{width:15px;height:15px;flex-shrink:0;}
+
+  .image-sub-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
+  .image-sub-tabs{
+    display:flex;gap:3px;background:var(--void);border:1px solid var(--line);
+    border-radius:10px;padding:3px;
+  }
+  .image-sub-tab{
+    font-family:var(--font-mono);font-weight:500;font-size:11.5px;background:transparent;
+    border:none;color:var(--mute);padding:7px 13px;border-radius:7px;cursor:pointer;
+    transition:.15s;white-space:nowrap;
+  }
+  .image-sub-tab:hover{color:var(--ink);}
+  .image-sub-tab.active{background:linear-gradient(135deg,#FF6EC7,#B357FF);color:#fff;box-shadow:0 3px 10px -3px rgba(179,87,255,0.6);}
   .composer-hint{font-size:10.5px;color:var(--mute);font-family:var(--font-mono);margin-top:7px;padding-left:4px;}
+  .composer-hint.mode-image{color:#C88CFF;}
 
   /* ===== Uploader + Assets tabs ===== */
   .scroll-view{flex:1;overflow-y:auto;padding:26px;}
@@ -462,27 +507,53 @@
   <div class="view active" id="view-ai">
     <aside class="side" id="sideNav">
       <div class="side-block">
-        <div class="side-title"><span class="n">01</span> Status AI</div>
-        <div class="model-badge" id="modelBadge"><span class="dot"></span><span id="modelBadgeText">llama-3.3-70b-versatile</span></div>
-      </div>
-      <div class="side-block">
-        <div class="side-title"><span class="n">02</span> Konteks Cepat</div>
-        <div class="chip-row">
-          <span class="chip" data-insert="Buatkan skeleton module untuk raps_system dengan Init(), Destroy(), Cleanup().">Boilerplate module</span>
-          <span class="chip" data-insert="Review script ini dan cari kemungkinan memory leak:\n\n">Review memory leak</span>
-          <span class="chip" data-insert="Jelaskan kenapa error ini terjadi:\n\n">Debug error</span>
-          <span class="chip" data-insert="Optimasi script ini biar lebih ringan:\n\n">Optimasi performa</span>
+        <div class="side-title"><span class="n">01</span> <span id="statusTitleText">Status AI</span></div>
+        <div class="mode-panel active" data-mode="chat">
+          <div class="model-badge" id="modelBadge"><span class="dot"></span><span id="modelBadgeText">llama-3.3-70b-versatile</span></div>
+        </div>
+        <div class="mode-panel" data-mode="image">
+          <div class="model-badge"><span class="dot" style="background:#B357FF;"></span><span>flux-2-dev</span></div>
         </div>
       </div>
       <div class="side-block">
-        <div class="side-title"><span class="n">03</span> Aturan Konvensi</div>
-        <ul class="conv-rules">
-          <li>Tanpa print() di manapun</li>
-          <li>Komentar cuma di paling atas</li>
-          <li>Connection wajib di-cleanup</li>
-          <li>Ringan &amp; crash-free</li>
-          <li>Selalu tulis full script, bukan potongan</li>
-        </ul>
+        <div class="side-title"><span class="n">02</span> <span id="quickTitleText">Konteks Cepat</span></div>
+        <div class="mode-panel active" data-mode="chat">
+          <div class="chip-row">
+            <span class="chip" data-insert="Buatkan skeleton module untuk raps_system dengan Init(), Destroy(), Cleanup().">Boilerplate module</span>
+            <span class="chip" data-insert="Review script ini dan cari kemungkinan memory leak:\n\n">Review memory leak</span>
+            <span class="chip" data-insert="Jelaskan kenapa error ini terjadi:\n\n">Debug error</span>
+            <span class="chip" data-insert="Optimasi script ini biar lebih ringan:\n\n">Optimasi performa</span>
+          </div>
+        </div>
+        <div class="mode-panel" data-mode="image">
+          <div class="chip-row">
+            <span class="chip" data-insert-image="Icon UI bulat gaya neon untuk tombol shop, latar transparan">Icon shop neon</span>
+            <span class="chip" data-insert-image="Splash art karakter robot futuristik untuk banner game, dramatic lighting">Splash art karakter</span>
+            <span class="chip" data-insert-image="Logo game RAPS gradient biru ke ungu, gaya modern minimal">Logo game</span>
+            <span class="chip" data-insert-image="Konsep environment lobby futuristik dengan pencahayaan neon">Konsep environment</span>
+          </div>
+        </div>
+      </div>
+      <div class="side-block">
+        <div class="side-title"><span class="n">03</span> <span id="rulesTitleText">Aturan Konvensi</span></div>
+        <div class="mode-panel active" data-mode="chat">
+          <ul class="conv-rules">
+            <li>Tanpa print() di manapun</li>
+            <li>Komentar cuma di paling atas</li>
+            <li>Connection wajib di-cleanup</li>
+            <li>Ringan &amp; crash-free</li>
+            <li>Selalu tulis full script, bukan potongan</li>
+          </ul>
+        </div>
+        <div class="mode-panel" data-mode="image">
+          <ul class="conv-rules">
+            <li>Sebutkan gaya visual (flat, realistic, 3D, cartoon)</li>
+            <li>Sertakan warna dominan yang diinginkan</li>
+            <li>Mode Referensi = tiru gaya dari gambar upload</li>
+            <li>Prompt detail = hasil lebih akurat</li>
+            <li>Fokus satu subjek per gambar</li>
+          </ul>
+        </div>
       </div>
       <div class="side-block">
         <div class="side-title"><span class="n">04</span> Riwayat Chat</div>
@@ -494,33 +565,68 @@
     <main class="chatcol">
       <div class="messages" id="messages">
         <div class="empty-state" id="emptyState">
-          <div class="empty-mark">R</div>
-          <h2>Tanya apa saja soal Luau &amp; Roblox</h2>
-          <div class="empty-examples">
-            <button class="example-btn" data-fill="Buatkan module OverheadModule yang clone BillboardGui ke kepala karakter.">OverheadModule generator</button>
-            <button class="example-btn" data-fill="Kenapa WalkSpeed nggak balik normal saat tool di-unequip? Ini scriptnya:">Debug WalkSpeed unequip</button>
-            <button class="example-btn" data-fill="Buatkan sistem carry pakai proxy BasePart yang di-weld ke HumanoidRootPart carrier.">Carry system proxy BasePart</button>
+          <div class="mode-panel active" data-mode="chat">
+            <div class="empty-mark">R</div>
+            <h2>Tanya apa saja soal Luau &amp; Roblox</h2>
+            <div class="empty-examples">
+              <button class="example-btn" data-fill="Buatkan module OverheadModule yang clone BillboardGui ke kepala karakter.">OverheadModule generator</button>
+              <button class="example-btn" data-fill="Kenapa WalkSpeed nggak balik normal saat tool di-unequip? Ini scriptnya:">Debug WalkSpeed unequip</button>
+              <button class="example-btn" data-fill="Buatkan sistem carry pakai proxy BasePart yang di-weld ke HumanoidRootPart carrier.">Carry system proxy BasePart</button>
+            </div>
+          </div>
+          <div class="mode-panel" data-mode="image">
+            <div class="empty-mark" style="background:linear-gradient(135deg,#FF6EC7,#B357FF);">R</div>
+            <h2>Buat gambar apa saja yang kamu mau</h2>
+            <div class="empty-examples">
+              <button class="example-btn img-mode" data-fill-image="Icon UI bulat gaya neon untuk tombol shop, latar transparan">Icon shop neon</button>
+              <button class="example-btn img-mode" data-fill-image="Splash art karakter robot futuristik untuk banner game, dramatic lighting">Splash art karakter</button>
+              <button class="example-btn img-mode" data-fill-image="Logo game RAPS gradient biru ke ungu, gaya modern minimal">Logo game</button>
+            </div>
           </div>
         </div>
       </div>
       <div class="composer">
-        <div class="chip-row" id="imageModeRow" style="margin-bottom:8px;">
-          <span class="chip" data-mode="text" id="modeChipText">Teks → Gambar</span>
-          <span class="chip" data-mode="reference" id="modeChipRef">Referensi → Gambar</span>
+
+        <div class="composer-mode-switch">
+          <button class="composer-mode-btn active" id="composerModeChat" data-composer-mode="chat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Tanya AI
+          </button>
+          <button class="composer-mode-btn" id="composerModeImage" data-composer-mode="image">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.5" fill="currentColor" stroke="none"/><path d="M21 15l-5-5-9 9"/></svg>
+            Buat Gambar
+          </button>
         </div>
-        <div id="refUploadRow" style="display:none;align-items:center;gap:8px;margin-bottom:8px;">
-          <button class="code-copy" id="refUploadBtn" style="position:static;">📎 Upload Gambar Referensi</button>
-          <img id="refPreviewImg" style="display:none;height:34px;width:34px;object-fit:cover;border-radius:6px;border:1px solid var(--line);">
-          <span id="refFileName" style="font-size:11px;color:var(--mute);font-family:var(--font-mono);"></span>
-          <button class="code-copy" id="refRemoveBtn" style="display:none;position:static;">Hapus</button>
+
+        <div class="composer-panel active" id="composerPanelChat">
+          <div class="composer-inner" id="composerInnerChat">
+            <textarea id="promptInputChat" rows="1" placeholder="Tanya soal script Luau, debug, atau minta dibuatkan module..."></textarea>
+            <button class="send-btn" id="sendBtn">Kirim</button>
+          </div>
+          <div class="composer-hint">Enter untuk kirim · Shift+Enter untuk baris baru</div>
         </div>
-        <input type="file" id="refFileInput" accept="image/*" style="display:none">
-        <div class="composer-inner">
-          <textarea id="promptInput" rows="1" placeholder="Tanya soal script Luau, debug, atau minta dibuatkan module..."></textarea>
-          <button class="send-btn image-btn" id="imageBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.5" fill="currentColor" stroke="none"/><path d="M21 15l-5-5-9 9"/></svg>Gambar</button>
-          <button class="send-btn" id="sendBtn">Kirim</button>
+
+        <div class="composer-panel" id="composerPanelImage">
+          <div class="image-sub-row">
+            <div class="image-sub-tabs">
+              <button type="button" class="image-sub-tab active" data-mode="text" id="modeChipText">Teks → Gambar</button>
+              <button type="button" class="image-sub-tab" data-mode="reference" id="modeChipRef">Referensi → Gambar</button>
+            </div>
+          </div>
+          <div id="refUploadRow" style="display:none;align-items:center;gap:8px;margin-bottom:8px;">
+            <button class="code-copy" id="refUploadBtn" style="position:static;">📎 Upload Gambar Referensi</button>
+            <img id="refPreviewImg" style="display:none;height:34px;width:34px;object-fit:cover;border-radius:6px;border:1px solid var(--line);">
+            <span id="refFileName" style="font-size:11px;color:var(--mute);font-family:var(--font-mono);"></span>
+            <button class="code-copy" id="refRemoveBtn" style="display:none;position:static;">Hapus</button>
+          </div>
+          <input type="file" id="refFileInput" accept="image/*" style="display:none">
+          <div class="composer-inner mode-image" id="composerInnerImage">
+            <textarea id="promptInputImage" rows="1" placeholder="Deskripsikan gambar yang mau dibuat..."></textarea>
+            <button class="send-btn image-btn" id="imageBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.5" fill="currentColor" stroke="none"/><path d="M21 15l-5-5-9 9"/></svg>Gambar</button>
+          </div>
+          <div class="composer-hint mode-image" id="composerHintImage">Enter untuk generate · Upload gambar referensi dulu kalau mau mode Referensi</div>
         </div>
-        <div class="composer-hint" id="composerHint">Enter untuk kirim · Shift+Enter untuk baris baru · Tombol Gambar untuk generate image dari teks</div>
+
       </div>
     </main>
   </div>
@@ -768,13 +874,41 @@ $('menuBtn').addEventListener('click', () => $('sideNav').classList.toggle('open
 /* ===================== AI ASSISTANT (Groq — gratis) ===================== */
 const messagesEl = $('messages');
 const emptyState = $('emptyState');
-const promptInput = $('promptInput');
+const promptInputChat = $('promptInputChat');
+const promptInputImage = $('promptInputImage');
 const sendBtn = $('sendBtn');
 const imageBtn = $('imageBtn');
 
 const PROXY_URL = 'https://raps-proxy.ianmahesa02.workers.dev';
 let history = [];
 let busy = false;
+
+/* --- mode composer utama: Tanya AI vs Buat Gambar (biar kerasa kayak 2 halaman terpisah) --- */
+const composerModeChatBtn = $('composerModeChat');
+const composerModeImageBtn = $('composerModeImage');
+const composerPanelChat = $('composerPanelChat');
+const composerPanelImage = $('composerPanelImage');
+
+let composerMode = 'chat';
+
+function setComposerMode(mode){
+  composerMode = mode;
+  const isChat = mode === 'chat';
+  composerModeChatBtn.classList.toggle('active', isChat);
+  composerModeImageBtn.classList.toggle('active', !isChat);
+  composerPanelChat.classList.toggle('active', isChat);
+  composerPanelImage.classList.toggle('active', !isChat);
+  document.querySelectorAll('.mode-panel').forEach(panel => {
+    panel.classList.toggle('active', panel.dataset.mode === mode);
+  });
+  if (isChat){
+    promptInputChat.focus();
+  } else {
+    promptInputImage.focus();
+  }
+}
+composerModeChatBtn.addEventListener('click', () => setComposerMode('chat'));
+composerModeImageBtn.addEventListener('click', () => setComposerMode('image'));
 
 /* --- mode gambar: Teks->Gambar (default) atau Referensi->Gambar (img2img) --- */
 const modeChipText = $('modeChipText');
@@ -785,21 +919,19 @@ const refUploadBtn = $('refUploadBtn');
 const refFileName = $('refFileName');
 const refPreviewImg = $('refPreviewImg');
 const refRemoveBtn = $('refRemoveBtn');
-const composerHint = $('composerHint');
+const composerHintImage = $('composerHintImage');
 
 let imageMode = 'text';
 let refImageBase64 = null;
 let refImageBlobFile = null;
 
 function setActiveModeChip(){
-  modeChipText.style.borderColor = imageMode === 'text' ? 'var(--flame)' : 'var(--line)';
-  modeChipText.style.color = imageMode === 'text' ? 'var(--ink)' : 'var(--mute)';
-  modeChipRef.style.borderColor = imageMode === 'reference' ? 'var(--flame)' : 'var(--line)';
-  modeChipRef.style.color = imageMode === 'reference' ? 'var(--ink)' : 'var(--mute)';
+  modeChipText.classList.toggle('active', imageMode === 'text');
+  modeChipRef.classList.toggle('active', imageMode === 'reference');
   refUploadRow.style.display = imageMode === 'reference' ? 'flex' : 'none';
-  composerHint.textContent = imageMode === 'reference'
+  composerHintImage.textContent = imageMode === 'reference'
     ? 'Upload gambar referensi lalu klik Gambar untuk generate berdasarkan gambar itu.'
-    : 'Enter untuk kirim · Shift+Enter untuk baris baru · Tombol Gambar untuk generate image dari teks';
+    : 'Enter untuk generate · Tulis deskripsi gambar yang mau dibuat dari teks';
 }
 modeChipText.addEventListener('click', () => { imageMode = 'text'; setActiveModeChip(); });
 modeChipRef.addEventListener('click', () => { imageMode = 'reference'; setActiveModeChip(); });
@@ -888,28 +1020,54 @@ Konteks arsitektur proyek RAPS: modul server di ServerStorage > raps_system deng
 
 Jawab dalam Bahasa Indonesia yang santai tapi teknis dan padat. Kode dalam blok markdown lua. Jangan pernah menulis print() bahkan untuk contoh debug.`;
 
-document.querySelectorAll('.chip').forEach(chip => {
+document.querySelectorAll('.chip[data-insert]').forEach(chip => {
   chip.addEventListener('click', () => {
-    promptInput.value = chip.dataset.insert.replace(/\\n/g, '\n');
-    promptInput.focus();
-    autoResize();
+    setComposerMode('chat');
+    promptInputChat.value = chip.dataset.insert.replace(/\\n/g, '\n');
+    promptInputChat.focus();
+    autoResizeChat();
   });
 });
-document.querySelectorAll('.example-btn').forEach(btn => {
+document.querySelectorAll('.chip[data-insert-image]').forEach(chip => {
+  chip.addEventListener('click', () => {
+    setComposerMode('image');
+    promptInputImage.value = chip.dataset.insertImage.replace(/\\n/g, '\n');
+    promptInputImage.focus();
+    autoResizeImage();
+  });
+});
+document.querySelectorAll('.example-btn[data-fill]').forEach(btn => {
   btn.addEventListener('click', () => {
-    promptInput.value = btn.dataset.fill;
-    autoResize();
+    setComposerMode('chat');
+    promptInputChat.value = btn.dataset.fill;
+    autoResizeChat();
     sendMessage();
   });
 });
+document.querySelectorAll('.example-btn[data-fill-image]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    setComposerMode('image');
+    promptInputImage.value = btn.dataset.fillImage;
+    autoResizeImage();
+    generateImage();
+  });
+});
 
-function autoResize(){
-  promptInput.style.height = 'auto';
-  promptInput.style.height = Math.min(promptInput.scrollHeight, 150) + 'px';
+function autoResizeChat(){
+  promptInputChat.style.height = 'auto';
+  promptInputChat.style.height = Math.min(promptInputChat.scrollHeight, 150) + 'px';
 }
-promptInput.addEventListener('input', autoResize);
-promptInput.addEventListener('keydown', (e) => {
+function autoResizeImage(){
+  promptInputImage.style.height = 'auto';
+  promptInputImage.style.height = Math.min(promptInputImage.scrollHeight, 150) + 'px';
+}
+promptInputChat.addEventListener('input', autoResizeChat);
+promptInputChat.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); }
+});
+promptInputImage.addEventListener('input', autoResizeImage);
+promptInputImage.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); generateImage(); }
 });
 sendBtn.addEventListener('click', sendMessage);
 
@@ -1300,13 +1458,13 @@ async function streamGroqCompletion(model, messagesPayload, onDelta){
 
 async function sendMessage(){
   if (busy) return;
-  const text = promptInput.value.trim();
+  const text = promptInputChat.value.trim();
   if (!text) return;
 
   addMessage('user', text);
   history.push({ role: 'user', content: text });
-  promptInput.value = '';
-  autoResize();
+  promptInputChat.value = '';
+  autoResizeChat();
   await saveCurrentConversation();
 
   busy = true;
@@ -1375,13 +1533,13 @@ async function sendMessage(){
 }
 
 /* --- image generation via proxy (Cloudflare Workers AI) ---
-   Worker sekarang balikin file binary (Content-Type: image/png) langsung saat
-   sukses, jadi di sini cukup response.blob() — tidak ada base64 yang lewat
-   atau ditangani di browser sama sekali. Blob-nya disimpan permanen ke
-   IndexedDB supaya gambar tetap ada walau halaman di-refresh. */
+   Worker balikin file binary (Content-Type: image/png) langsung saat sukses,
+   jadi di sini cukup response.blob() — tidak ada base64 yang lewat atau
+   ditangani di browser sama sekali. Blob-nya disimpan permanen ke IndexedDB
+   supaya gambar tetap ada walau halaman di-refresh. */
 async function generateImage(){
   if (busy) return;
-  const text = promptInput.value.trim();
+  const text = promptInputImage.value.trim();
   if (!text){ showToast('Tulis dulu deskripsi gambarnya', true); return; }
   if (imageMode === 'reference' && !refImageBase64){
     showToast('Upload gambar referensi dulu', true);
@@ -1408,8 +1566,8 @@ async function generateImage(){
   if (refImageIdForHistory) userMsg.refImageId = refImageIdForHistory;
   history.push(userMsg);
 
-  promptInput.value = '';
-  autoResize();
+  promptInputImage.value = '';
+  autoResizeImage();
   await saveCurrentConversation();
 
   busy = true;
