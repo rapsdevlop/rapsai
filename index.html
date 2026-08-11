@@ -940,7 +940,7 @@ $('menuBtn').addEventListener('click', () => {
 $('sidebarCloseBtn').addEventListener('click', closeSidebar);
 $('sidebarBackdrop').addEventListener('click', closeSidebar);
 
-/* ===================== AI ASSISTANT (Groq — gratis) ===================== */
+/* ===================== AI ASSISTANT (via router.bynara.id lewat proxy) ===================== */
 const messagesEl = $('messages');
 const emptyState = $('emptyState');
 const promptInputChat = $('promptInputChat');
@@ -1071,9 +1071,9 @@ refFileInput.addEventListener('change', (e) => handleRefFile(e.target.files[0]))
 refRemoveBtn.addEventListener('click', clearRefImage);
 
 const MODEL_CHAIN = [
-  'llama-3.3-70b-versatile',
-  'llama-3.1-8b-instant',
-  'meta-llama/llama-4-scout-17b-16e-instruct'
+  'deepseek-3.2',
+  'claude-haiku-4.5',
+  'auto/bynara'
 ];
 
 const SYSTEM_PROMPT = `Kamu adalah RAPS AI, asisten koding khusus Luau dan Roblox Studio untuk developer bernama Roy yang sedang membangun game bernama RAPS.
@@ -1480,7 +1480,7 @@ function updateModelBadge(model){
   if (el) el.textContent = model;
 }
 
-/* --- Groq streaming call (via Cloudflare Worker proxy) with retry + model fallback --- */
+/* --- streaming call ke proxy (yang sekarang meneruskan ke router.bynara.id) dengan retry + model fallback --- */
 async function streamGroqCompletion(model, messagesPayload, onDelta){
   const response = await fetch(PROXY_URL, {
     method: 'POST',
